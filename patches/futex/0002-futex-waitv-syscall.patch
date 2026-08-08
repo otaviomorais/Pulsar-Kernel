@@ -1,0 +1,287 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Pulsar Bot <pulsar@localhost>
+Date: Sat, 08 Aug 2026 12:00:00 +0000
+Subject: [PATCH 2/2] futex: implement futex_waitv syscall (nr 449)
+
+Backport of sys_futex_waitv from Linux 5.16 adapted for the 4.19 CAF
+single-file futex implementation (kernel/futex.c).
+
+futex_waitv allows waiting on an array of up to 128 futexes in a single
+syscall. This is critical for Wine/ntsync performance: games using
+hundreds of sync objects can batch their waits instead of making N
+individual futex syscalls.
+
+The implementation is self-contained and appended to kernel/futex.c,
+reusing existing infrastructure: get_futex_key(), futex_wait_setup(),
+futex_wait_queue_me(), unqueue_me(), queue_lock/unlock().
+
+Key differences from 5.16 upstream:
+- No separate kernel/futex/ directory; code appended to kernel/futex.c
+- Uses 4.19 hrtimer_sleeper_on_stack API
+- Uses get_timespec64/timespec64_to_ktime available in this base
+- Syscall nr 449 registered in unistd.h and unistd32.h
+
+Signed-off-by: Pulsar Bot <pulsar@localhost>
+---
+ arch/arm64/include/asm/unistd32.h |   6 +-
+ include/linux/syscalls.h          |   5 +
+ include/uapi/asm-generic/unistd.h |   6 +-
+ kernel/futex.c                    | 174 ++++++++++++++++++++++++++++++
+ kernel/sys_ni.c                   |   1 +
+ 5 files changed, 190 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/include/asm/unistd32.h b/arch/arm64/include/asm/unistd32.h
+index aabbcc1..aabbcc2 100644
+--- a/arch/arm64/include/asm/unistd32.h
++++ b/arch/arm64/include/asm/unistd32.h
+@@ -830,8 +830,12 @@ __SYSCALL(__NR_epoll_pwait2, compat_sys_epoll_pwait2)
+ /*
+  * Please add new compat syscalls above this comment and update
+  * __NR_compat_syscalls in asm/unistd.h.
+  */
++#define __NR_futex_waitv 449
++__SYSCALL(__NR_futex_waitv, sys_futex_waitv)
++
+ #undef __NR_compat_syscalls
+-#define __NR_compat_syscalls		442
++#define __NR_compat_syscalls		450
+diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
+index aabbcc3..aabbcc4 100644
+--- a/include/linux/syscalls.h
++++ b/include/linux/syscalls.h
+@@ -808,6 +808,11 @@ asmlinkage long sys_process_madvise(int pidfd, const struct iovec __user *vec,
+ 				    size_t vlen, int behavior,
+ 				    unsigned int flags);
+ 
++asmlinkage long sys_futex_waitv(struct futex_waitv __user *waiters,
++				unsigned int nr_futexes,
++				unsigned int flags,
++				struct __kernel_timespec __user *timeout,
++				clockid_t clockid);
++
+ /*
+  * Architecture-specific system calls
+  */
+diff --git a/include/uapi/asm-generic/unistd.h b/include/uapi/asm-generic/unistd.h
+index aabbcc5..aabbcc6 100644
+--- a/include/uapi/asm-generic/unistd.h
++++ b/include/uapi/asm-generic/unistd.h
+@@ -748,8 +748,12 @@ __SYSCALL(__NR_mount_setattr, sys_mount_setattr)
+ 
+ #undef __NR_syscalls
+-#define __NR_syscalls 442
++#define __NR_syscalls 450
+ 
++/* futex_waitv: wait on multiple futexes (Linux 5.16, nr 449) */
++#define __NR_futex_waitv 449
++__SYSCALL(__NR_futex_waitv, sys_futex_waitv)
++
+ /*
+  * 32 bit systems traditionally used different
+diff --git a/kernel/futex.c b/kernel/futex.c
+index aabbcc7..aabbcc8 100644
+--- a/kernel/futex.c
++++ b/kernel/futex.c
+@@ -4195,3 +4195,177 @@ core_initcall(futex_init);
++
++/* ---------------------------------------------------------------
++ * futex_waitv — wait on multiple futexes (backport from Linux 5.16)
++ * --------------------------------------------------------------- */
++
++/**
++ * struct futex_waitv_q - per-futex internal state for futex_waitv
++ * @q:     the futex_q used to queue on the hash bucket
++ * @uaddr: user-space 32-bit futex address
++ * @val:   expected value
++ * @flags: per-waiter flags (FUTEX_32, FUTEX_PRIVATE_FLAG)
++ * @hb:    hash bucket pointer (set by futex_wait_setup)
++ */
++struct futex_waitv_q {
++	struct futex_q            q;
++	u32 __user               *uaddr;
++	u32                       val;
++	unsigned int              flags;
++	struct futex_hash_bucket *hb;
++};
++
++/*
++ * futex_waitv_setup_all() - get_key + queue all waiters
++ *
++ * Iterates the array, calls futex_wait_setup() for each entry.
++ * On value mismatch or error, unqueues already-queued entries and
++ * returns the error.
++ */
++static int futex_waitv_setup_all(struct futex_waitv_q *qv, unsigned int count)
++{
++	unsigned int i;
++	int ret;
++
++	for (i = 0; i < count; i++) {
++		unsigned int kflags = 0;
++
++		if (!(qv[i].flags & FUTEX_PRIVATE_FLAG))
++			kflags |= FLAGS_SHARED;
++
++		qv[i].q = futex_q_init;
++
++		ret = futex_wait_setup(qv[i].uaddr, qv[i].val, kflags,
++				       &qv[i].q, &qv[i].hb);
++		if (ret) {
++			int j;
++
++			for (j = (int)i - 1; j >= 0; j--)
++				unqueue_me(&qv[j].q);
++			return ret;
++		}
++	}
++	return 0;
++}
++
++/*
++ * futex_waitv_dequeue_all() - unqueue every entry, return index of woken one
++ *
++ * unqueue_me() returns 0 when the task was already removed by a waker
++ * (i.e. we were woken via that futex).  Returns index of woken futex or
++ * -1 if none (timeout / signal path).
++ */
++static int futex_waitv_dequeue_all(struct futex_waitv_q *qv, unsigned int count)
++{
++	unsigned int i;
++	int woken = -1;
++
++	for (i = 0; i < count; i++) {
++		if (!unqueue_me(&qv[i].q) && woken < 0)
++			woken = (int)i;
++	}
++	return woken;
++}
++
++/**
++ * sys_futex_waitv - wait on multiple futexes simultaneously
++ * @uwaitv:    user pointer to array of struct futex_waitv
++ * @nr_futexes: number of entries in the array (1..FUTEX_WAITV_MAX=128)
++ * @flags:     top-level flags: 0 or FUTEX_WAITV_CLOCK_REALTIME
++ * @timeout:   optional absolute timeout as __kernel_timespec; NULL = none
++ * @clockid:   CLOCK_MONOTONIC (default) or CLOCK_REALTIME
++ *
++ * Returns the index (>= 0) of the futex that woke the caller, or a
++ * negative error code (-ETIMEDOUT, -ERESTARTSYS, -EFAULT, -EINVAL…).
++ */
++SYSCALL_DEFINE5(futex_waitv,
++		struct futex_waitv __user *, uwaitv,
++		unsigned int, nr_futexes,
++		unsigned int, flags,
++		struct __kernel_timespec __user *, timeout,
++		clockid_t, clockid)
++{
++	struct hrtimer_sleeper to;
++	bool has_timeout = false;
++	struct futex_waitv_q *qv;
++	struct futex_waitv kv[FUTEX_WAITV_MAX];
++	unsigned int i;
++	int ret;
++
++	/* Validate top-level flags */
++	if (flags & ~FUTEX_WAITV_CLOCK_REALTIME)
++		return -EINVAL;
++	if (!nr_futexes || nr_futexes > FUTEX_WAITV_MAX)
++		return -EINVAL;
++
++	/* Copy userspace array */
++	if (copy_from_user(kv, uwaitv, sizeof(struct futex_waitv) * nr_futexes))
++		return -EFAULT;
++
++	/* Validate per-waiter entries */
++	for (i = 0; i < nr_futexes; i++) {
++		/* __reserved must be zero */
++		if (kv[i].__reserved)
++			return -EINVAL;
++		/* Only FUTEX_32 word size supported; optionally FUTEX_PRIVATE_FLAG */
++		if (!(kv[i].flags & FUTEX_32))
++			return -EINVAL;
++		if (kv[i].flags & ~(FUTEX_32 | FUTEX_PRIVATE_FLAG))
++			return -EINVAL;
++	}
++
++	qv = kcalloc(nr_futexes, sizeof(*qv), GFP_KERNEL);
++	if (!qv)
++		return -ENOMEM;
++
++	for (i = 0; i < nr_futexes; i++) {
++		qv[i].uaddr = (u32 __user *)(uintptr_t)kv[i].uaddr;
++		qv[i].val   = (u32)kv[i].val;
++		qv[i].flags = kv[i].flags;
++	}
++
++	/* Setup optional hrtimer */
++	if (timeout) {
++		struct timespec64 ts;
++		clockid_t clk;
++
++		if (get_timespec64(&ts, timeout)) {
++			ret = -EFAULT;
++			goto out_free;
++		}
++		if (!timespec64_valid(&ts)) {
++			ret = -EINVAL;
++			goto out_free;
++		}
++
++		clk = (flags & FUTEX_WAITV_CLOCK_REALTIME) ?
++		      CLOCK_REALTIME : CLOCK_MONOTONIC;
++
++		hrtimer_init_sleeper_on_stack(&to, clk, HRTIMER_MODE_ABS);
++		hrtimer_set_expires(&to.timer, timespec64_to_ktime(ts));
++		has_timeout = true;
++	}
++
++	/* Queue all entries; bail if any value already differs */
++	ret = futex_waitv_setup_all(qv, nr_futexes);
++	if (ret)
++		goto out_timer;
++
++	/* Go to sleep */
++	set_current_state(TASK_INTERRUPTIBLE);
++
++	if (has_timeout)
++		hrtimer_start_expires(&to.timer, HRTIMER_MODE_ABS);
++
++	/* Check for pending signal before sleeping */
++	if (signal_pending(current)) {
++		__set_current_state(TASK_RUNNING);
++		futex_waitv_dequeue_all(qv, nr_futexes);
++		ret = -ERESTARTSYS;
++		goto out_timer;
++	}
++
++	freezable_schedule();
++	__set_current_state(TASK_RUNNING);
++
++	/* Dequeue and find who woke us */
++	ret = futex_waitv_dequeue_all(qv, nr_futexes);
++	if (ret >= 0)
++		goto out_timer; /* success: ret = woken index */
++
++	/* Woken by timeout or signal */
++	if (has_timeout && !to.task)
++		ret = -ETIMEDOUT;
++	else if (signal_pending(current))
++		ret = -ERESTARTSYS;
++	else
++		ret = -EAGAIN; /* spurious wakeup; caller should retry */
++
++out_timer:
++	if (has_timeout) {
++		hrtimer_cancel(&to.timer);
++		destroy_hrtimer_on_stack(&to.timer);
++	}
++out_free:
++	kfree(qv);
++	return ret;
++}
+diff --git a/kernel/sys_ni.c b/kernel/sys_ni.c
+index aabbcc9..aabbcca 100644
+--- a/kernel/sys_ni.c
++++ b/kernel/sys_ni.c
+@@ -272,3 +272,4 @@ COND_SYSCALL(process_madvise);
++COND_SYSCALL(futex_waitv);

@@ -201,7 +201,8 @@ static inline bool susfs_is_current_proc_umounted(void) {
 void susfs_try_umount_all(uid_t target_uid);
 void ksu_try_umount(const char *mnt, bool check_mnt, int flags, uid_t uid);
 void susfs_reorder_mnt_id(void);
-void susfs_run_sus_path_loop(void);
+void susfs_run_sus_path_loop(uid_t target_uid);
+static inline bool susfs_is_sid_equal(u32 sid1, u32 sid2) { return sid1 == sid2; }
 static inline void susfs_set_i_state_on_external_dir(void *arg) {}
 static inline void susfs_add_sus_path_loop(void *arg) {}
 static inline void susfs_set_hide_sus_mnts_for_all_procs(void *arg) {}

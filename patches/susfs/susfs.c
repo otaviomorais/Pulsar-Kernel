@@ -912,6 +912,8 @@ void susfs_init(void) {
 }
 
 /* Pulsar kernel compatibility wrappers & stubs */
+u32 __attribute__((weak)) susfs_zygote_sid = 0;
+
 void susfs_try_umount_all(uid_t target_uid) {
 #ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
 	susfs_try_umount(target_uid);
@@ -924,8 +926,9 @@ void __attribute__((weak)) ksu_try_umount(const char *mnt, bool check_mnt, int f
 void __attribute__((weak)) susfs_reorder_mnt_id(void) {
 }
 
-void __attribute__((weak)) susfs_run_sus_path_loop(void) {
+void __attribute__((weak)) susfs_run_sus_path_loop(uid_t target_uid) {
 }
+
 
 
 /* No module exit is needed becuase it should never be a loadable kernel module */

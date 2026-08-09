@@ -197,4 +197,15 @@ static inline bool susfs_is_current_proc_umounted(void) {
 #endif
 }
 
+/* rsuntk legacy supercall compatibility stubs */
+static inline void susfs_set_i_state_on_external_dir(void *arg) {}
+static inline void susfs_add_sus_path_loop(void *arg) {}
+static inline void susfs_set_hide_sus_mnts_for_all_procs(void *arg) {}
+static inline void susfs_enable_log(void *arg) {}
+static inline void susfs_add_sus_map(void *arg) {}
+static inline void susfs_set_avc_log_spoofing(void *arg) {}
+static inline void susfs_get_enabled_features(void *arg) {}
+static inline void susfs_show_variant(void *arg) {}
+static inline void susfs_show_version(void *arg) {}
+
 #endif

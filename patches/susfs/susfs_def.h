@@ -25,6 +25,26 @@
 #define CMD_SUSFS_IS_SUS_SU_READY 0x555f0
 #define CMD_SUSFS_SUS_SU 0x60000
 
+/* rsuntk legacy supercall compatibility macros */
+#ifndef CMD_SUSFS_ADD_SUS_PATH_LOOP
+#define CMD_SUSFS_ADD_SUS_PATH_LOOP 0x55551
+#endif
+#ifndef CMD_SUSFS_SET_ANDROID_DATA_ROOT_PATH
+#define CMD_SUSFS_SET_ANDROID_DATA_ROOT_PATH 0x55552
+#endif
+#ifndef CMD_SUSFS_SET_SDCARD_ROOT_PATH
+#define CMD_SUSFS_SET_SDCARD_ROOT_PATH 0x55553
+#endif
+#ifndef CMD_SUSFS_HIDE_SUS_MNTS_FOR_ALL_PROCS
+#define CMD_SUSFS_HIDE_SUS_MNTS_FOR_ALL_PROCS 0x55561
+#endif
+#ifndef CMD_SUSFS_ADD_SUS_MAP
+#define CMD_SUSFS_ADD_SUS_MAP 0x555e0
+#endif
+#ifndef CMD_SUSFS_ENABLE_AVC_LOG_SPOOFING
+#define CMD_SUSFS_ENABLE_AVC_LOG_SPOOFING 0x555f1
+#endif
+
 #define SUSFS_MAX_LEN_PATHNAME 256 // 256 should address many paths already unless you are doing some strange experimental stuff, then set your own desired length
 #define SUSFS_FAKE_CMDLINE_OR_BOOTCONFIG_SIZE 4096
 

@@ -1,0 +1,13 @@
+diff --git a/drivers/misc/e404_attributes.c b/drivers/misc/e404_attributes.c
+index eeee27a8b..61687ad15 100644
+--- a/drivers/misc/e404_attributes.c
++++ b/drivers/misc/e404_attributes.c
+@@ -41,7 +41,7 @@ struct e404_attributes e404_data = {
+     .panel_oem_width            = 700,
+     .panel_oem_height           = 1550,
+ #endif
+-    .bg_blocklist               = "com.shopee.id,com.lazada.android,com.tokopedia.tkpd",
++    .bg_blocklist               = "",
+ };
+ 
+ static int  blocked_cnt;

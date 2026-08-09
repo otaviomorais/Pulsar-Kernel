@@ -1,0 +1,40 @@
+diff --git a/arch/arm64/boot/dts/vendor/qcom/kona-v2-gpu.dtsi b/arch/arm64/boot/dts/vendor/qcom/kona-v2-gpu.dtsi
+index 0141f798e..db239ad5f 100755
+--- a/arch/arm64/boot/dts/vendor/qcom/kona-v2-gpu.dtsi
++++ b/arch/arm64/boot/dts/vendor/qcom/kona-v2-gpu.dtsi
+@@ -64,7 +64,7 @@
+ 			#address-cells = <1>;
+ 			#size-cells = <0>;
+ 			qcom,speed-bin = <0>;
+-			qcom,initial-pwrlevel = <6>;
++			qcom,initial-pwrlevel = <0>;
+ 			qcom,throttle-pwrlevel = <1>;
+ 
+ 			qcom,gpu-pwrlevel@0 {
+@@ -178,7 +178,7 @@
+ 			#address-cells = <1>;
+ 			#size-cells = <0>;
+ 			qcom,speed-bin = <1>;
+-			qcom,initial-pwrlevel = <6>;
++			qcom,initial-pwrlevel = <0>;
+ 			qcom,throttle-pwrlevel = <1>;
+ 
+ 			qcom,gpu-pwrlevel@0 {
+@@ -292,7 +292,7 @@
+ 			#address-cells = <1>;
+ 			#size-cells = <0>;
+ 			qcom,speed-bin = <2>;
+-			qcom,initial-pwrlevel = <6>;
++			qcom,initial-pwrlevel = <0>;
+ 			qcom,throttle-pwrlevel = <1>;
+ 
+ 			qcom,gpu-pwrlevel@0 {
+@@ -406,7 +406,7 @@
+ 			#address-cells = <1>;
+ 			#size-cells = <0>;
+ 			qcom,speed-bin = <3>;
+-			qcom,initial-pwrlevel = <6>;
++			qcom,initial-pwrlevel = <0>;
+ 			qcom,throttle-pwrlevel = <1>;
+ 
+ 			qcom,gpu-pwrlevel@0 {

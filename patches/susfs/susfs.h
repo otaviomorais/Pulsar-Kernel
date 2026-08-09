@@ -183,4 +183,18 @@ int susfs_sus_su(struct st_sus_su* __user user_info);
 /* susfs_init */
 void susfs_init(void);
 
+static inline void susfs_set_current_proc_umounted(void) {
+#ifdef CONFIG_KSU_SUSFS
+	current->susfs_task_state |= TASK_STRUCT_PROC_UMOUNTED;
+#endif
+}
+
+static inline bool susfs_is_current_proc_umounted(void) {
+#ifdef CONFIG_KSU_SUSFS
+	return (current->susfs_task_state & TASK_STRUCT_PROC_UMOUNTED);
+#else
+	return false;
+#endif
+}
+
 #endif

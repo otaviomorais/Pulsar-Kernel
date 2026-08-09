@@ -46,6 +46,7 @@ jobs:
           cd KernelSU
           git fetch origin susfs-rksu-master
           git checkout 9b28326a
+          sed -i 's/#include <linux\/susfs_def\.h>/#include <linux\/susfs\.h>/g' kernel/sucompat.c
           cd ..
           ls -l drivers/kernelsu
           ls KernelSU/kernel/Kconfig

@@ -43,6 +43,10 @@ jobs:
         run: |
           cd kernel
           git submodule update --init
+          cd KernelSU
+          git fetch origin susfs-rksu-master
+          git checkout 9b28326a
+          cd ..
           ls -l drivers/kernelsu
           ls KernelSU/kernel/Kconfig
 

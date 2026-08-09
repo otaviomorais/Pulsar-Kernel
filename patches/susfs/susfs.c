@@ -911,6 +911,23 @@ void susfs_init(void) {
 	SUSFS_LOGI("susfs is initialized! version: " SUSFS_VERSION " \n");
 }
 
+/* Pulsar kernel compatibility wrappers & stubs */
+void susfs_try_umount_all(uid_t target_uid) {
+#ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
+	susfs_try_umount(target_uid);
+#endif
+}
+
+void __attribute__((weak)) ksu_try_umount(const char *mnt, bool check_mnt, int flags, uid_t uid) {
+}
+
+void __attribute__((weak)) susfs_reorder_mnt_id(void) {
+}
+
+void __attribute__((weak)) susfs_run_sus_path_loop(void) {
+}
+
+
 /* No module exit is needed becuase it should never be a loadable kernel module */
 //void __init susfs_exit(void)
 

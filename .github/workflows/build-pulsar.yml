@@ -47,12 +47,7 @@ jobs:
           git fetch origin susfs-rksu-master
           git checkout 9b28326a
           sed -i 's/#include <linux\/susfs_def\.h>/#include <linux\/susfs\.h>/g' kernel/sucompat.c
-          sed -i 's/susfs_add_sus_kstat(arg)/susfs_add_sus_kstat((void __user *)arg)/g' kernel/supercalls.c
-          sed -i 's/susfs_update_sus_kstat(arg)/susfs_update_sus_kstat((void __user *)arg)/g' kernel/supercalls.c
-          sed -i 's/susfs_add_try_umount(arg)/susfs_add_try_umount((void __user *)arg)/g' kernel/supercalls.c
-          sed -i 's/susfs_set_uname(arg)/susfs_set_uname((void __user *)arg)/g' kernel/supercalls.c
-          sed -i 's/susfs_set_cmdline_or_bootconfig(arg)/susfs_set_cmdline_or_bootconfig((void __user *)arg)/g' kernel/supercalls.c
-          sed -i 's/susfs_add_open_redirect(arg)/susfs_add_open_redirect((void __user *)arg)/g' kernel/supercalls.c
+          sed -i -E 's/(susfs_[a_zA-Z0-9_]+)\(arg\)/\1((void __user *)arg)/g' kernel/supercalls.c
           cd ..
           ls -l drivers/kernelsu
           ls KernelSU/kernel/Kconfig

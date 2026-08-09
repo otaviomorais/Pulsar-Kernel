@@ -3,6 +3,10 @@
 
 #include <linux/bits.h>
 
+#ifndef SUSFS_MAGIC
+#define SUSFS_MAGIC 0x55555555
+#endif
+
 /********/
 /* ENUM */
 /********/

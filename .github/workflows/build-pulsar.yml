@@ -44,8 +44,12 @@ jobs:
           cd kernel
           git submodule update --init
           cd KernelSU
+          git fetch --unshallow origin || true
           git fetch origin susfs-rksu-master
+          git fetch origin '+refs/tags/*:refs/tags/*' || true
           git checkout 9b28326a
+          # Garantir KSU_VERSION >= 33235 para compatibilidade com o Manager
+          sed -i -E 's/KSU_VERSION ?=.*/KSU_VERSION := 33235/' kernel/Kbuild 2>/dev/null || true
           sed -i 's/#include <linux\/susfs_def\.h>/#include <linux\/susfs\.h>/g' kernel/sucompat.c
           sed -i -E 's/(susfs_[[:alnum:]_]+)\(arg\)/\1((void __user *)arg)/g' kernel/supercalls.c
           cd ..

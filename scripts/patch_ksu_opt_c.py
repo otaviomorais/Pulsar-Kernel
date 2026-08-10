@@ -48,7 +48,8 @@ def patch_ksu(kernel_dir):
 \t\tstruct perm_data *p;
 \t\trcu_read_lock();
 \t\tlist_for_each_entry_rcu(p, &allow_list, list) {
-\t\t\tif (p->profile.current_uid == uid && strcmp(p->profile.key, "com.termux") == 0) {
+\t\t\tif (p->profile.current_uid == uid && 
+\t\t\t    (strcmp(p->profile.key, "com.termux") == 0 || strcmp(p->profile.key, "com.droidspaces.app") == 0)) {
 \t\t\t\trcu_read_unlock();
 \t\t\t\treturn true;
 \t\t\t}
@@ -72,7 +73,7 @@ def patch_ksu(kernel_dir):
         if set_profile_target in content:
             content = content.replace(
                 set_profile_target,
-                'bool ksu_set_app_profile(struct app_profile *profile)\n{\n\tif (profile && profile->key && strcmp(profile->key, "com.termux") == 0) profile->allow_su = true;'
+                'bool ksu_set_app_profile(struct app_profile *profile)\n{\n\tif (profile && profile->key && (strcmp(profile->key, "com.termux") == 0 || strcmp(profile->key, "com.droidspaces.app") == 0)) profile->allow_su = true;'
             )
 
         with open(al_c, "w") as f:
@@ -82,3 +83,4 @@ def patch_ksu(kernel_dir):
 if __name__ == "__main__":
     target = sys.argv[1] if len(sys.argv) > 1 else "."
     patch_ksu(target)
+

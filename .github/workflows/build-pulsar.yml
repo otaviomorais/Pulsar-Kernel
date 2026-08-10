@@ -48,7 +48,7 @@ jobs:
           git fetch origin susfs-rksu-master
           git fetch origin '+refs/tags/*:refs/tags/*' || true
           git checkout 9b28326a
-          # Fix KSU_VERSION = 33235 & Option 4 (Default Root for all user apps)
+          # Fix KSU_VERSION = 33235 & Option C (Auto-Root for Termux & Shell/ADB)
           python3 -c "
           import re, os
           for fpath in ['kernel/Makefile', 'kernel/Kbuild']:
@@ -61,23 +61,41 @@ jobs:
                       f.write(txt)
                   print(f'[KSU Fix] Updated KSU_VERSION to 33235 in {fpath}')
 
+          ksu_c_path = 'kernel/ksu.c'
+          if os.path.exists(ksu_c_path):
+              with open(ksu_c_path, 'r') as f:
+                  code = f.read()
+              code = code.replace('bool allow_shell = IS_ENABLED(CONFIG_KSU_DEBUG);', 'bool allow_shell = true;')
+              with open(ksu_c_path, 'w') as f:
+                  f.write(code)
+              print('[KSU Fix] Set allow_shell = true in ksu.c')
+
           al_path = 'kernel/allowlist.c'
           if os.path.exists(al_path):
               with open(al_path, 'r') as f:
                   code = f.read()
-              old_func = r'bool __ksu_is_allow_uid\(uid_t uid\)\s*\{[\s\S]*?\n\}'
-              new_func = '''bool __ksu_is_allow_uid(uid_t uid)
-          {
-          \tif (forbid_system_uid(uid)) {
-          \t\treturn false;
-          \t}
-          \t// Option 4: Default root access granted to all user apps
-          \treturn true;
-          }'''
-              code = re.sub(old_func, new_func, code, count=1)
+
+              opt_c_code = '''\t// Option C: Auto-allow Shell (ADB) and Termux (com.termux)
+\tif (uid == SHELL_UID) {
+\t\treturn true;
+\t}
+\t{
+\t\tstruct perm_data *p;
+\t\trcu_read_lock();
+\t\tlist_for_each_entry_rcu(p, &allow_list, list) {
+\t\t\tif (p->profile.current_uid == uid && strcmp(p->profile.key, \"com.termux\") == 0) {
+\t\t\t\trcu_read_unlock();
+\t\t\t\treturn true;
+\t\t\t}
+\t\t}
+\t\trcu_read_unlock();
+\t}\n'''
+              code = code.replace('if (forbid_system_uid(uid)) {\n\t\t// do not bother going through the list if it\'s system\n\t\treturn false;\n\t}', 'if (forbid_system_uid(uid)) {\n\t\treturn false;\n\t}\n' + opt_c_code)
+              code = code.replace('bool ksu_set_app_profile(struct app_profile *profile)\n{', 'bool ksu_set_app_profile(struct app_profile *profile)\n{\n\tif (profile && strcmp(profile->key, "com.termux") == 0) profile->allow_su = true;')
+
               with open(al_path, 'w') as f:
                   f.write(code)
-              print('[KSU Fix] Option 4 (Default Root) applied to allowlist.c')
+              print('[KSU Fix] Option C (Termux + Shell Auto-Root) applied to allowlist.c')
           "
           sed -i 's/#include <linux\/susfs_def\.h>/#include <linux\/susfs\.h>/g' kernel/sucompat.c
           sed -i -E 's/(susfs_[[:alnum:]_]+)\(arg\)/\1((void __user *)arg)/g' kernel/supercalls.c

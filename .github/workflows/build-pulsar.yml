@@ -1,6 +1,8 @@
 name: Build Pulsar Kernel (alioth)
 
 on:
+  push:
+    branches: [ main ]
   workflow_dispatch:
     inputs:
       device:

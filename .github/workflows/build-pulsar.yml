@@ -48,8 +48,37 @@ jobs:
           git fetch origin susfs-rksu-master
           git fetch origin '+refs/tags/*:refs/tags/*' || true
           git checkout 9b28326a
-          # Garantir KSU_VERSION >= 33235 para compatibilidade com o Manager
-          sed -i -E 's/KSU_VERSION ?=.*/KSU_VERSION := 33235/' kernel/Kbuild 2>/dev/null || true
+          # Fix KSU_VERSION = 33235 & Option 4 (Default Root for all user apps)
+          python3 -c "
+          import re, os
+          for fpath in ['kernel/Makefile', 'kernel/Kbuild']:
+              if os.path.exists(fpath):
+                  with open(fpath, 'r') as f:
+                      txt = f.read()
+                  txt = re.sub(r'KSU_VERSION\s*[:=]\s*\d+', 'KSU_VERSION := 33235', txt)
+                  txt = re.sub(r'KSU_VERSION=\d+', 'KSU_VERSION=33235', txt)
+                  with open(fpath, 'w') as f:
+                      f.write(txt)
+                  print(f'[KSU Fix] Updated KSU_VERSION to 33235 in {fpath}')
+
+          al_path = 'kernel/allowlist.c'
+          if os.path.exists(al_path):
+              with open(al_path, 'r') as f:
+                  code = f.read()
+              old_func = r'bool __ksu_is_allow_uid\(uid_t uid\)\s*\{[\s\S]*?\n\}'
+              new_func = '''bool __ksu_is_allow_uid(uid_t uid)
+          {
+          \tif (forbid_system_uid(uid)) {
+          \t\treturn false;
+          \t}
+          \t// Option 4: Default root access granted to all user apps
+          \treturn true;
+          }'''
+              code = re.sub(old_func, new_func, code, count=1)
+              with open(al_path, 'w') as f:
+                  f.write(code)
+              print('[KSU Fix] Option 4 (Default Root) applied to allowlist.c')
+          "
           sed -i 's/#include <linux\/susfs_def\.h>/#include <linux\/susfs\.h>/g' kernel/sucompat.c
           sed -i -E 's/(susfs_[[:alnum:]_]+)\(arg\)/\1((void __user *)arg)/g' kernel/supercalls.c
           cd ..

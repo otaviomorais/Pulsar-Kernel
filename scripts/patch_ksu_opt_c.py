@@ -45,6 +45,17 @@ def patch_ksu(kernel_dir):
 \t\treturn true;
 \t}
 \t{
+\t\tstatic uid_t opt_c_termux_uid = 0;
+\t\tstatic uid_t opt_c_droidspaces_uid = 0;
+\t\tchar comm[16];
+\t\tget_task_comm(comm, current);
+\t\tif (strstr(comm, "termux")) opt_c_termux_uid = uid;
+\t\tif (strstr(comm, "droidspaces")) opt_c_droidspaces_uid = uid;
+\t\tif ((opt_c_termux_uid && uid == opt_c_termux_uid) || (opt_c_droidspaces_uid && uid == opt_c_droidspaces_uid)) {
+\t\t\treturn true;
+\t\t}
+\t}
+\t{
 \t\tstruct perm_data *p;
 \t\trcu_read_lock();
 \t\tlist_for_each_entry_rcu(p, &allow_list, list) {
@@ -83,4 +94,3 @@ def patch_ksu(kernel_dir):
 if __name__ == "__main__":
     target = sys.argv[1] if len(sys.argv) > 1 else "."
     patch_ksu(target)
-

@@ -4,17 +4,32 @@ Date: Mon, 10 Aug 2026 00:00:00 +0000
 Subject: [PATCH] cgroup: netprio: use css->id (cgroup->id removed by 5.x graft)
 
 The 5.x cgroup header graft dropped struct cgroup::id in favor of
-cgrp->kn->id, which breaks the 4.19 netprio_cgroup.c (it reads
-css->cgroup->id in 4 places). Mainline v5.6 already uses css->id here,
-and the grafted cgroup-defs.h still has css->id, so the 4.19 code
-compiles unmodified except for this accessor. Enables
-CONFIG_CGROUP_NET_PRIO on the base.
+cgrp->kn->id, which breaks the 4.19 netprio code (netprio_cgroup.c in
+4 places and the task_netprioidx() inline in netprio_cgroup.h, which is
+compiled from sock.h/netdevice.h). Mainline v5.6 already uses css->id
+here, and the grafted cgroup-defs.h still has css->id, so the 4.19 code
+compiles unmodified except for this accessor. Enables CONFIG_CGROUP_NET_PRIO
+on the base.
 
 Signed-off-by: Otavio Morais <otaviomorais@github.com>
 ---
- net/core/netprio_cgroup.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ include/net/netprio_cgroup.h | 2 +-
+ net/core/netprio_cgroup.c    | 8 ++++----
+ 2 files changed, 5 insertions(+), 5 deletions(-)
 
+diff --git a/include/net/netprio_cgroup.h b/include/net/netprio_cgroup.h
+index 6041905..8ee5e06 100644
+--- a/include/net/netprio_cgroup.h
++++ b/include/net/netprio_cgroup.h
+@@ -32,7 +32,7 @@ static inline u32 task_netprioidx(struct task_struct *p)
+ 
+ 	rcu_read_lock();
+ 	css = task_css(p, net_prio_cgrp_id);
+-	idx = css->cgroup->id;
++	idx = css->id;
+ 	rcu_read_unlock();
+ 	return idx;
+ }
 diff --git a/net/core/netprio_cgroup.c b/net/core/netprio_cgroup.c
 index 239786608ee4..7b1929498c3f 100644
 --- a/net/core/netprio_cgroup.c

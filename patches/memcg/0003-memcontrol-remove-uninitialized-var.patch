@@ -1,0 +1,21 @@
+mm/memcontrol: drop uninitialized_var() (removed from grafted 5.10 headers)
+
+The macro uninitialized_var() was removed upstream (v5.10); the e404 base
+grafts 5.10-era compiler headers, so it is undefined. MEMCG was previously
+disabled so memcontrol.c never compiled; enabling MEMCG exposed this. Plain
+declaration is fine with modern Clang 20.
+
+Signed-off-by: Otavio Henrique Franco de Morais <otavio.hfmorais@sp.senac.br>
+
+diff --git a/mm/memcontrol.c b/mm/memcontrol.c
+--- a/mm/memcontrol.c
++++ b/mm/memcontrol.c
+@@ -919,7 +919,7 @@
+ 				   struct mem_cgroup *prev,
+ 				   struct mem_cgroup_reclaim_cookie *reclaim)
+ {
+-	struct mem_cgroup_reclaim_iter *uninitialized_var(iter);
++	struct mem_cgroup_reclaim_iter *iter;
+ 	struct cgroup_subsys_state *css = NULL;
+ 	struct mem_cgroup *memcg = NULL;
+ 	struct mem_cgroup *pos = NULL;

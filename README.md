@@ -36,6 +36,7 @@ O Pulsar nasce de uma base SM8250 madura — ~79 releases acima do upstream
 | **io_uring** | Backport v5.1 — I/O assíncrono de baixa latência |
 | **zram + zstd** | Compressor zstd padrão — swap mais compacto e rápido |
 | **CGROUPS (DroidSpaces)** | Device/PIDs/sched/freezer habilitados para o container Android |
+| **fchmodat2** | Syscall v6.6 (nr 452) — chmod com `AT_SYMLINK_NOFOLLOW`/`AT_EMPTY_PATH` sem `/proc/self/fd`, p/ glibc/musl e containers |
 
 ## 📲 Instalação
 
@@ -68,7 +69,8 @@ documentado e auditável.
 ├── patches/
 │   ├── droidspaces/    # fix cgroup para o container Android
 │   ├── io_uring/       # backport v5.1
-│   └── mglru/          # backport MGLRU + registro
+│   ├── mglru/          # backport MGLRU + registro
+│   └── syscalls/       # fchmodat2 (v6.6) + registro
 └── .github/workflows/  # build-pulsar.yml (GitHub Actions)
 ```
 

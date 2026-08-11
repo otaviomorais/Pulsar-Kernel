@@ -36,6 +36,7 @@ Pulsar is built on a mature SM8250 base — ~79 releases ahead of upstream
 | **io_uring** | v5.1 backport — low-latency async I/O |
 | **zram + zstd** | zstd compressor by default — smaller and faster swap |
 | **CGROUPS (DroidSpaces)** | Device/PIDs/sched/freezer enabled for the Android container |
+| **fchmodat2** | v6.6 syscall (nr 452) — chmod with `AT_SYMLINK_NOFOLLOW`/`AT_EMPTY_PATH` without `/proc/self/fd`, for glibc/musl and containers |
 
 ## 📲 Installation
 

@@ -1,0 +1,12 @@
+diff --git a/KernelSU/kernel/supercalls.c b/KernelSU/kernel/supercalls.c
+--- a/KernelSU/kernel/supercalls.c
++++ b/KernelSU/kernel/supercalls.c
+@@ -877,7 +877,7 @@
+ #endif
+ #ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
+ 	case CMD_SUSFS_ENABLE_LOG:
+-		susfs_enable_log((void __user *)arg3);
++		susfs_set_log(arg3 != 0);
+ 		break;
+ #endif
+ #ifdef CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG

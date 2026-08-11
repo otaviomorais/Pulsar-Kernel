@@ -901,6 +901,74 @@ out:
 }
 #endif // #ifdef CONFIG_KSU_SUSFS_SUS_SU
 
+void susfs_show_version(void *arg) {
+	char version[64] = {0};
+	snprintf(version, sizeof(version), "%s", SUSFS_VERSION);
+	if (copy_to_user((void __user *)arg, version, strlen(version) + 1))
+		SUSFS_LOGE("susfs_show_version: copy_to_user() failed\n");
+	SUSFS_LOGI("susfs: version: %s\n", version);
+}
+
+void susfs_show_variant(void *arg) {
+	char variant[64] = {0};
+	snprintf(variant, sizeof(variant), "%s", SUSFS_VARIANT);
+	if (copy_to_user((void __user *)arg, variant, strlen(variant) + 1))
+		SUSFS_LOGE("susfs_show_variant: copy_to_user() failed\n");
+	SUSFS_LOGI("susfs: variant: %s\n", variant);
+}
+
+void susfs_get_enabled_features(void *arg) {
+	unsigned long features = 0;
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+	features |= (1 << 0);
+#endif
+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
+	features |= (1 << 1);
+#endif
+#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT
+	features |= (1 << 2);
+#endif
+#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT
+	features |= (1 << 3);
+#endif
+#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+	features |= (1 << 4);
+#endif
+#ifdef CONFIG_KSU_SUSFS_SUS_OVERLAYFS
+	features |= (1 << 5);
+#endif
+#ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
+	features |= (1 << 6);
+#endif
+#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT
+	features |= (1 << 7);
+#endif
+#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
+	features |= (1 << 8);
+#endif
+#ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
+	features |= (1 << 9);
+#endif
+#ifdef CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS
+	features |= (1 << 10);
+#endif
+#ifdef CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG
+	features |= (1 << 11);
+#endif
+#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+	features |= (1 << 12);
+#endif
+#ifdef CONFIG_KSU_SUSFS_SUS_SU
+	features |= (1 << 13);
+#endif
+#ifdef CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT
+	features |= (1 << 14);
+#endif
+	if (copy_to_user((void __user *)arg, &features, sizeof(features)))
+		SUSFS_LOGE("susfs_get_enabled_features: copy_to_user() failed\n");
+	SUSFS_LOGI("susfs: enabled features: 0x%lx\n", features);
+}
+
 /* susfs_init */
 void susfs_init(void) {
 	spin_lock_init(&susfs_spin_lock);

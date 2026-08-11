@@ -50,8 +50,9 @@ jobs:
           git fetch origin susfs-rksu-master
           git fetch origin '+refs/tags/*:refs/tags/*' || true
           git checkout 9b28326a
-          # Run Option C & KSU_VERSION fix script
-          python3 "$GITHUB_WORKSPACE/droidspace/scripts/patch_ksu_opt_c.py" .
+          # Base e404 ja integra KernelSU via drivers/kernelsu -> ../KernelSU/kernel
+          # (drivers/Kconfig + drivers/Makefile + symlink); o script scripts/patch_ksu_opt_c.py
+          # foi removido do repo - nao e necessario. So os fixes de susfs abaixo.
           sed -i 's/#include <linux\/susfs_def\.h>/#include <linux\/susfs\.h>/g' kernel/sucompat.c
           sed -i -E 's/(susfs_[[:alnum:]_]+)\(arg\)/\1((void __user *)arg)/g' kernel/supercalls.c
           cd ..

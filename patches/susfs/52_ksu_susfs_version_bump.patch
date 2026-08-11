@@ -1,0 +1,13 @@
+diff --git a/KernelSU/kernel/Makefile b/KernelSU/kernel/Makefile
+index 3ce331da..9f1ad443 100644
+--- a/KernelSU/kernel/Makefile
++++ b/KernelSU/kernel/Makefile
+@@ -23,7 +23,7 @@ ccflags-y += -I$(objtree)/security/selinux -include $(srctree)/include/uapi/asm-
+ 
+ obj-$(CONFIG_KSU) += kernelsu.o
+ 
+-KSU_VERSION=32359
++KSU_VERSION=33235
+ KSU_GIT_BRANCH="susfs-rksu-master"
+ 
+ ccflags-y += -DKSU_VERSION=$(KSU_VERSION)

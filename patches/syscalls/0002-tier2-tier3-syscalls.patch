@@ -1,6 +1,6 @@
 diff -ruN '--exclude=.git' state-A/arch/arm64/Kconfig test-base/arch/arm64/Kconfig
---- state-A/arch/arm64/Kconfig	2026-08-13 23:37:09.710859935 +0000
-+++ test-base/arch/arm64/Kconfig	2026-08-13 23:37:34.264683798 +0000
+--- state-A/arch/arm64/Kconfig	2026-08-13 23:50:56.081860315 +0000
++++ test-base/arch/arm64/Kconfig	2026-08-13 23:53:53.006947089 +0000
 @@ -21,6 +21,8 @@
  	select ARCH_HAS_MEMBARRIER_SYNC_CORE
  	select ARCH_HAS_NON_OVERLAPPING_ADDRESS_SPACE
@@ -32,8 +32,8 @@ diff -ruN '--exclude=.git' state-A/arch/arm64/Kconfig test-base/arch/arm64/Kconf
  	bool "Emulate deprecated/obsolete ARMv8 instructions"
  	depends on COMPAT
 diff -ruN '--exclude=.git' state-A/arch/arm64/include/asm/cacheflush.h test-base/arch/arm64/include/asm/cacheflush.h
---- state-A/arch/arm64/include/asm/cacheflush.h	2026-08-13 23:37:10.001519183 +0000
-+++ test-base/arch/arm64/include/asm/cacheflush.h	2026-08-13 23:37:34.264683798 +0000
+--- state-A/arch/arm64/include/asm/cacheflush.h	2026-08-13 23:50:56.546583662 +0000
++++ test-base/arch/arm64/include/asm/cacheflush.h	2026-08-13 23:53:53.006947089 +0000
 @@ -201,4 +201,7 @@
  
  int set_memory_valid(unsigned long addr, int numpages, int enable);
@@ -43,8 +43,8 @@ diff -ruN '--exclude=.git' state-A/arch/arm64/include/asm/cacheflush.h test-base
 +
  #endif
 diff -ruN '--exclude=.git' state-A/arch/arm64/include/asm/mmu_context.h test-base/arch/arm64/include/asm/mmu_context.h
---- state-A/arch/arm64/include/asm/mmu_context.h	2026-08-13 23:37:10.059461726 +0000
-+++ test-base/arch/arm64/include/asm/mmu_context.h	2026-08-13 23:37:34.265415575 +0000
+--- state-A/arch/arm64/include/asm/mmu_context.h	2026-08-13 23:50:56.551192601 +0000
++++ test-base/arch/arm64/include/asm/mmu_context.h	2026-08-13 23:53:53.007064028 +0000
 @@ -36,6 +36,8 @@
  #include <asm/tlbflush.h>
  #include <linux/msm_rtb.h>
@@ -55,8 +55,8 @@ diff -ruN '--exclude=.git' state-A/arch/arm64/include/asm/mmu_context.h test-bas
  {
  	pid_t pid = task_pid_nr(next);
 diff -ruN '--exclude=.git' state-A/arch/arm64/include/asm/unistd.h test-base/arch/arm64/include/asm/unistd.h
---- state-A/arch/arm64/include/asm/unistd.h	2026-08-13 23:37:10.018572402 +0000
-+++ test-base/arch/arm64/include/asm/unistd.h	2026-08-13 23:37:34.239705358 +0000
+--- state-A/arch/arm64/include/asm/unistd.h	2026-08-13 23:50:56.575033515 +0000
++++ test-base/arch/arm64/include/asm/unistd.h	2026-08-13 23:53:52.987299698 +0000
 @@ -49,7 +49,7 @@
  #define __ARM_NR_compat_set_tls		(__ARM_NR_COMPAT_BASE + 5)
  #define __ARM_NR_COMPAT_END		(__ARM_NR_COMPAT_BASE + 0x800)
@@ -67,8 +67,8 @@ diff -ruN '--exclude=.git' state-A/arch/arm64/include/asm/unistd.h test-base/arc
  
  #define __ARCH_WANT_SYS_CLONE
 diff -ruN '--exclude=.git' state-A/arch/arm64/include/asm/unistd32.h test-base/arch/arm64/include/asm/unistd32.h
---- state-A/arch/arm64/include/asm/unistd32.h	2026-08-13 23:37:10.065069099 +0000
-+++ test-base/arch/arm64/include/asm/unistd32.h	2026-08-13 23:37:34.243757018 +0000
+--- state-A/arch/arm64/include/asm/unistd32.h	2026-08-13 23:50:56.580882769 +0000
++++ test-base/arch/arm64/include/asm/unistd32.h	2026-08-13 23:53:52.990410164 +0000
 @@ -837,12 +837,26 @@
  __SYSCALL(__NR_process_madvise, sys_process_madvise)
  #define __NR_epoll_pwait2 441
@@ -99,8 +99,8 @@ diff -ruN '--exclude=.git' state-A/arch/arm64/include/asm/unistd32.h test-base/a
  /*
   * Please add new compat syscalls above this comment and update
 diff -ruN '--exclude=.git' state-A/arch/arm64/mm/mmu.c test-base/arch/arm64/mm/mmu.c
---- state-A/arch/arm64/mm/mmu.c	2026-08-13 23:37:10.188815827 +0000
-+++ test-base/arch/arm64/mm/mmu.c	2026-08-13 23:37:34.265415575 +0000
+--- state-A/arch/arm64/mm/mmu.c	2026-08-13 23:50:56.703176423 +0000
++++ test-base/arch/arm64/mm/mmu.c	2026-08-13 23:53:53.007064028 +0000
 @@ -492,7 +492,7 @@
  	struct memblock_region *reg;
  	int flags = 0;
@@ -132,8 +132,8 @@ diff -ruN '--exclude=.git' state-A/arch/arm64/mm/mmu.c test-base/arch/arm64/mm/m
  early_param("rodata", parse_rodata);
  
 diff -ruN '--exclude=.git' state-A/arch/arm64/mm/pageattr.c test-base/arch/arm64/mm/pageattr.c
---- state-A/arch/arm64/mm/pageattr.c	2026-08-13 23:37:10.189244805 +0000
-+++ test-base/arch/arm64/mm/pageattr.c	2026-08-13 23:37:34.265470794 +0000
+--- state-A/arch/arm64/mm/pageattr.c	2026-08-13 23:50:56.703702041 +0000
++++ test-base/arch/arm64/mm/pageattr.c	2026-08-13 23:53:53.007121388 +0000
 @@ -138,9 +138,42 @@
  					__pgprot(PTE_VALID));
  }
@@ -188,8 +188,8 @@ diff -ruN '--exclude=.git' state-A/arch/arm64/mm/pageattr.c test-base/arch/arm64
  	if (pgd_none(READ_ONCE(*pgdp)))
  		return false;
 diff -ruN '--exclude=.git' state-A/fs/xattr.c test-base/fs/xattr.c
---- state-A/fs/xattr.c	2026-08-13 23:37:06.940814617 +0000
-+++ test-base/fs/xattr.c	2026-08-13 23:37:34.258462068 +0000
+--- state-A/fs/xattr.c	2026-08-13 23:50:53.397218398 +0000
++++ test-base/fs/xattr.c	2026-08-13 23:53:53.001465014 +0000
 @@ -827,6 +827,280 @@
  }
  
@@ -472,8 +472,8 @@ diff -ruN '--exclude=.git' state-A/fs/xattr.c test-base/fs/xattr.c
   * list.
   */
 diff -ruN '--exclude=.git' state-A/include/linux/mempolicy.h test-base/include/linux/mempolicy.h
---- state-A/include/linux/mempolicy.h	2026-08-13 23:37:22.395683144 +0000
-+++ test-base/include/linux/mempolicy.h	2026-08-13 23:37:34.265470794 +0000
+--- state-A/include/linux/mempolicy.h	2026-08-13 23:51:01.853535825 +0000
++++ test-base/include/linux/mempolicy.h	2026-08-13 23:53:53.007121388 +0000
 @@ -46,6 +46,8 @@
  	atomic_t refcnt;
  	unsigned short mode; 	/* See MPOL_* above */
@@ -485,7 +485,7 @@ diff -ruN '--exclude=.git' state-A/include/linux/mempolicy.h test-base/include/l
  		nodemask_t	 nodes;		/* interleave/bind */
 diff -ruN '--exclude=.git' state-A/include/linux/secretmem.h test-base/include/linux/secretmem.h
 --- state-A/include/linux/secretmem.h	1970-01-01 00:00:00.000000000 +0000
-+++ test-base/include/linux/secretmem.h	2026-08-13 23:37:34.265519274 +0000
++++ test-base/include/linux/secretmem.h	2026-08-13 23:53:53.007172408 +0000
 @@ -0,0 +1,48 @@
 +/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 +#ifndef _LINUX_SECRETMEM_H
@@ -537,8 +537,8 @@ diff -ruN '--exclude=.git' state-A/include/linux/secretmem.h test-base/include/l
 +#endif /* _LINUX_SECRETMEM_H */
 \ No newline at end of file
 diff -ruN '--exclude=.git' state-A/include/linux/syscalls.h test-base/include/linux/syscalls.h
---- state-A/include/linux/syscalls.h	2026-08-13 23:37:22.981139881 +0000
-+++ test-base/include/linux/syscalls.h	2026-08-13 23:37:34.247520440 +0000
+--- state-A/include/linux/syscalls.h	2026-08-13 23:51:09.728997428 +0000
++++ test-base/include/linux/syscalls.h	2026-08-13 23:53:52.993117892 +0000
 @@ -73,6 +73,8 @@
  struct rseq;
  union bpf_attr;
@@ -584,8 +584,8 @@ diff -ruN '--exclude=.git' state-A/include/linux/syscalls.h test-base/include/li
  /* kernel/hrtimer.c */
  asmlinkage long sys_nanosleep(struct __kernel_timespec __user *rqtp,
 diff -ruN '--exclude=.git' state-A/include/linux/xattr.h test-base/include/linux/xattr.h
---- state-A/include/linux/xattr.h	2026-08-13 23:37:23.084362926 +0000
-+++ test-base/include/linux/xattr.h	2026-08-13 23:37:34.258462068 +0000
+--- state-A/include/linux/xattr.h	2026-08-13 23:51:09.729109527 +0000
++++ test-base/include/linux/xattr.h	2026-08-13 23:53:53.001465014 +0000
 @@ -17,6 +17,9 @@
  #include <linux/spinlock.h>
  #include <uapi/linux/xattr.h>
@@ -597,8 +597,8 @@ diff -ruN '--exclude=.git' state-A/include/linux/xattr.h test-base/include/linux
  struct dentry;
  
 diff -ruN '--exclude=.git' state-A/include/uapi/asm-generic/unistd.h test-base/include/uapi/asm-generic/unistd.h
---- state-A/include/uapi/asm-generic/unistd.h	2026-08-13 23:37:23.198737179 +0000
-+++ test-base/include/uapi/asm-generic/unistd.h	2026-08-13 23:37:34.251477701 +0000
+--- state-A/include/uapi/asm-generic/unistd.h	2026-08-13 23:51:09.850386945 +0000
++++ test-base/include/uapi/asm-generic/unistd.h	2026-08-13 23:53:52.995624440 +0000
 @@ -760,15 +760,34 @@
  __SYSCALL(__NR_process_madvise, sys_process_madvise)
  #define __NR_epoll_pwait2 441
@@ -638,8 +638,8 @@ diff -ruN '--exclude=.git' state-A/include/uapi/asm-generic/unistd.h test-base/i
  /*
   * 32 bit systems traditionally used different
 diff -ruN '--exclude=.git' state-A/include/uapi/linux/magic.h test-base/include/uapi/linux/magic.h
---- state-A/include/uapi/linux/magic.h	2026-08-13 23:37:23.209017570 +0000
-+++ test-base/include/uapi/linux/magic.h	2026-08-13 23:37:34.265519274 +0000
+--- state-A/include/uapi/linux/magic.h	2026-08-13 23:51:09.874726356 +0000
++++ test-base/include/uapi/linux/magic.h	2026-08-13 23:53:53.007172408 +0000
 @@ -94,5 +94,6 @@
  #define BALLOON_KVM_MAGIC	0x13661366
  #define ZSMALLOC_MAGIC		0x58295829
@@ -648,8 +648,8 @@ diff -ruN '--exclude=.git' state-A/include/uapi/linux/magic.h test-base/include/
  
  #endif /* __LINUX_MAGIC_H__ */
 diff -ruN '--exclude=.git' state-A/include/uapi/linux/mman.h test-base/include/uapi/linux/mman.h
---- state-A/include/uapi/linux/mman.h	2026-08-13 23:37:23.222846504 +0000
-+++ test-base/include/uapi/linux/mman.h	2026-08-13 23:37:34.265559494 +0000
+--- state-A/include/uapi/linux/mman.h	2026-08-13 23:51:09.874753356 +0000
++++ test-base/include/uapi/linux/mman.h	2026-08-13 23:53:53.007215828 +0000
 @@ -36,4 +36,17 @@
  #define MAP_HUGE_2GB	HUGETLB_FLAG_ENCODE_2GB
  #define MAP_HUGE_16GB	HUGETLB_FLAG_ENCODE_16GB
@@ -669,8 +669,8 @@ diff -ruN '--exclude=.git' state-A/include/uapi/linux/mman.h test-base/include/u
 +
  #endif /* _UAPI_LINUX_MMAN_H */
 diff -ruN '--exclude=.git' state-A/include/uapi/linux/xattr.h test-base/include/uapi/linux/xattr.h
---- state-A/include/uapi/linux/xattr.h	2026-08-13 23:37:23.222544345 +0000
-+++ test-base/include/uapi/linux/xattr.h	2026-08-13 23:37:34.258462068 +0000
+--- state-A/include/uapi/linux/xattr.h	2026-08-13 23:51:09.874696977 +0000
++++ test-base/include/uapi/linux/xattr.h	2026-08-13 23:53:53.001465014 +0000
 @@ -10,6 +10,7 @@
  */
  
@@ -693,8 +693,8 @@ diff -ruN '--exclude=.git' state-A/include/uapi/linux/xattr.h test-base/include/
  
  /* Namespaces */
 diff -ruN '--exclude=.git' state-A/init/Kconfig test-base/init/Kconfig
---- state-A/init/Kconfig	2026-08-13 23:37:23.229643991 +0000
-+++ test-base/init/Kconfig	2026-08-13 23:37:34.265559494 +0000
+--- state-A/init/Kconfig	2026-08-13 23:51:09.881481606 +0000
++++ test-base/init/Kconfig	2026-08-13 23:53:53.007215828 +0000
 @@ -1968,6 +1968,16 @@
  
  	  If unsure, say Y.
@@ -713,8 +713,8 @@ diff -ruN '--exclude=.git' state-A/init/Kconfig test-base/init/Kconfig
  	default n
  	bool "Enabled debugging of rseq() system call" if EXPERT
 diff -ruN '--exclude=.git' state-A/kernel/sys_ni.c test-base/kernel/sys_ni.c
---- state-A/kernel/sys_ni.c	2026-08-13 23:37:23.245198576 +0000
-+++ test-base/kernel/sys_ni.c	2026-08-13 23:37:34.254683846 +0000
+--- state-A/kernel/sys_ni.c	2026-08-13 23:51:09.898558110 +0000
++++ test-base/kernel/sys_ni.c	2026-08-13 23:53:52.998519307 +0000
 @@ -279,6 +279,12 @@
  COND_SYSCALL(get_mempolicy);
  COND_SYSCALL_COMPAT(get_mempolicy);
@@ -729,8 +729,8 @@ diff -ruN '--exclude=.git' state-A/kernel/sys_ni.c test-base/kernel/sys_ni.c
  COND_SYSCALL(migrate_pages);
  COND_SYSCALL_COMPAT(migrate_pages);
 diff -ruN '--exclude=.git' state-A/mm/Kconfig test-base/mm/Kconfig
---- state-A/mm/Kconfig	2026-08-13 23:37:24.920212517 +0000
-+++ test-base/mm/Kconfig	2026-08-13 23:37:34.265559494 +0000
+--- state-A/mm/Kconfig	2026-08-13 23:51:11.786216590 +0000
++++ test-base/mm/Kconfig	2026-08-13 23:53:53.007215828 +0000
 @@ -853,6 +853,9 @@
  	  This option has a per-memcg and per-node memory overhead.
  # }
@@ -742,8 +742,8 @@ diff -ruN '--exclude=.git' state-A/mm/Kconfig test-base/mm/Kconfig
  
  config FORCE_ALLOC_FROM_DMA_ZONE
 diff -ruN '--exclude=.git' state-A/mm/Makefile test-base/mm/Makefile
---- state-A/mm/Makefile	2026-08-13 23:37:24.921183772 +0000
-+++ test-base/mm/Makefile	2026-08-13 23:37:34.265653434 +0000
+--- state-A/mm/Makefile	2026-08-13 23:51:11.787910622 +0000
++++ test-base/mm/Makefile	2026-08-13 23:53:53.007310627 +0000
 @@ -103,6 +103,7 @@
  obj-$(CONFIG_MEMORY_BALLOON) += balloon_compaction.o
  obj-$(CONFIG_PAGE_EXTENSION) += page_ext.o
@@ -753,8 +753,8 @@ diff -ruN '--exclude=.git' state-A/mm/Makefile test-base/mm/Makefile
  obj-$(CONFIG_IDLE_PAGE_TRACKING) += page_idle.o
  obj-$(CONFIG_FRAME_VECTOR) += frame_vector.o
 diff -ruN '--exclude=.git' state-A/mm/filemap.c test-base/mm/filemap.c
---- state-A/mm/filemap.c	2026-08-13 23:37:24.941113417 +0000
-+++ test-base/mm/filemap.c	2026-08-13 23:37:34.265667553 +0000
+--- state-A/mm/filemap.c	2026-08-13 23:51:11.798910573 +0000
++++ test-base/mm/filemap.c	2026-08-13 23:53:53.007324587 +0000
 @@ -24,6 +24,7 @@
  #include <linux/pagemap.h>
  #include <linux/file.h>
@@ -918,8 +918,8 @@ diff -ruN '--exclude=.git' state-A/mm/filemap.c test-base/mm/filemap.c
 +}
 +#endif /* CONFIG_CACHESTAT_SYSCALL */
 diff -ruN '--exclude=.git' state-A/mm/gup.c test-base/mm/gup.c
---- state-A/mm/gup.c	2026-08-13 23:37:24.942755089 +0000
-+++ test-base/mm/gup.c	2026-08-13 23:37:34.265715833 +0000
+--- state-A/mm/gup.c	2026-08-13 23:51:11.800910564 +0000
++++ test-base/mm/gup.c	2026-08-13 23:53:53.007370047 +0000
 @@ -9,6 +9,7 @@
  #include <linux/rmap.h>
  #include <linux/swap.h>
@@ -961,8 +961,8 @@ diff -ruN '--exclude=.git' state-A/mm/gup.c test-base/mm/gup.c
  			put_page(head);
  			goto pte_unmap;
 diff -ruN '--exclude=.git' state-A/mm/internal.h test-base/mm/internal.h
---- state-A/mm/internal.h	2026-08-13 23:37:24.951258728 +0000
-+++ test-base/mm/internal.h	2026-08-13 23:37:34.265752273 +0000
+--- state-A/mm/internal.h	2026-08-13 23:51:11.805910542 +0000
++++ test-base/mm/internal.h	2026-08-13 23:53:53.007403267 +0000
 @@ -314,6 +314,9 @@
  extern void mlock_vma_page(struct page *page);
  extern unsigned int munlock_vma_page(struct page *page);
@@ -974,8 +974,8 @@ diff -ruN '--exclude=.git' state-A/mm/internal.h test-base/mm/internal.h
   * Clear the page's PageMlocked().  This can be useful in a situation where
   * we want to unconditionally remove a page from the pagecache -- e.g.,
 diff -ruN '--exclude=.git' state-A/mm/mempolicy.c test-base/mm/mempolicy.c
---- state-A/mm/mempolicy.c	2026-08-13 23:37:24.964999083 +0000
-+++ test-base/mm/mempolicy.c	2026-08-13 23:37:34.265771333 +0000
+--- state-A/mm/mempolicy.c	2026-08-13 23:51:11.810910519 +0000
++++ test-base/mm/mempolicy.c	2026-08-13 23:53:53.007425327 +0000
 @@ -279,6 +279,7 @@
  	atomic_set(&policy->refcnt, 1);
  	policy->mode = mode;
@@ -1083,8 +1083,8 @@ diff -ruN '--exclude=.git' state-A/mm/mempolicy.c test-base/mm/mempolicy.c
  		if (!nodes_equal(a->w.user_nodemask, b->w.user_nodemask))
  			return false;
 diff -ruN '--exclude=.git' state-A/mm/mlock.c test-base/mm/mlock.c
---- state-A/mm/mlock.c	2026-08-13 23:37:24.967728310 +0000
-+++ test-base/mm/mlock.c	2026-08-13 23:37:34.265810493 +0000
+--- state-A/mm/mlock.c	2026-08-13 23:51:11.812910510 +0000
++++ test-base/mm/mlock.c	2026-08-13 23:53:53.007467327 +0000
 @@ -23,6 +23,7 @@
  #include <linux/hugetlb.h>
  #include <linux/memcontrol.h>
@@ -1103,8 +1103,8 @@ diff -ruN '--exclude=.git' state-A/mm/mlock.c test-base/mm/mlock.c
  		goto out;
  
 diff -ruN '--exclude=.git' state-A/mm/mmap.c test-base/mm/mmap.c
---- state-A/mm/mmap.c	2026-08-13 23:37:24.969097663 +0000
-+++ test-base/mm/mmap.c	2026-08-13 23:37:34.265832353 +0000
+--- state-A/mm/mmap.c	2026-08-13 23:51:11.814910502 +0000
++++ test-base/mm/mmap.c	2026-08-13 23:53:53.007490926 +0000
 @@ -1317,9 +1317,8 @@
  	return hint;
  }
@@ -1117,93 +1117,9 @@ diff -ruN '--exclude=.git' state-A/mm/mmap.c test-base/mm/mmap.c
  {
  	unsigned long locked, lock_limit;
  
-diff -ruN '--exclude=.git' state-A/mm/oom_kill.c test-base/mm/oom_kill.c
---- state-A/mm/oom_kill.c	2026-08-13 23:37:24.975728271 +0000
-+++ test-base/mm/oom_kill.c	2026-08-13 23:37:34.265880412 +0000
-@@ -27,6 +27,7 @@
- #include <linux/sched/coredump.h>
- #include <linux/sched/task.h>
- #include <linux/swap.h>
-+#include <linux/syscalls.h>
- #include <linux/timex.h>
- #include <linux/jiffies.h>
- #include <linux/cpuset.h>
-@@ -1235,3 +1236,72 @@
- 	if (__ratelimit(&pfoom_rs))
- 		pr_warn("Huh VM_FAULT_OOM leaked out to the #PF handler. Retrying PF\n");
- }
-+SYSCALL_DEFINE2(process_mrelease, int, pidfd, unsigned int, flags)
-+{
-+#ifdef CONFIG_MMU
-+	struct mm_struct *mm = NULL;
-+	struct task_struct *task;
-+	struct task_struct *p;
-+	unsigned int f_flags;
-+	bool reap = false;
-+	struct pid *pid;
-+	long ret = 0;
-+
-+	if (flags)
-+		return -EINVAL;
-+
-+	pid = pidfd_get_pid(pidfd, &f_flags);
-+	if (IS_ERR(pid))
-+		return PTR_ERR(pid);
-+
-+	task = get_pid_task(pid, PIDTYPE_TGID);
-+	if (!task) {
-+		ret = -ESRCH;
-+		goto put_pid;
-+	}
-+
-+	/*
-+	 * Make sure to choose a thread which still has a reference to mm
-+	 * during the group exit
-+	 */
-+	p = find_lock_task_mm(task);
-+	if (!p) {
-+		ret = -ESRCH;
-+		goto put_task;
-+	}
-+
-+	if (mmget_not_zero(p->mm)) {
-+		mm = p->mm;
-+		if (task_will_free_mem(p))
-+			reap = true;
-+		else {
-+			/* Error only if the work has not been done already */
-+			if (!test_bit(MMF_OOM_SKIP, &mm->flags))
-+				ret = -EINVAL;
-+		}
-+	}
-+	task_unlock(p);
-+
-+	if (!reap)
-+		goto drop_mm;
-+
-+	if (down_read_killable(&mm->mmap_sem)) {
-+		ret = -EINTR;
-+		goto drop_mm;
-+	}
-+	if (!__oom_reap_task_mm(mm))
-+		ret = -EAGAIN;
-+	up_read(&mm->mmap_sem);
-+
-+drop_mm:
-+	if (mm)
-+		mmput(mm);
-+put_task:
-+	put_task_struct(task);
-+put_pid:
-+	put_pid(pid);
-+	return ret;
-+#else
-+	return -ENOSYS;
-+#endif /* CONFIG_MMU */
-+}
 diff -ruN '--exclude=.git' state-A/mm/secretmem.c test-base/mm/secretmem.c
 --- state-A/mm/secretmem.c	1970-01-01 00:00:00.000000000 +0000
-+++ test-base/mm/secretmem.c	2026-08-13 23:37:34.265908892 +0000
++++ test-base/mm/secretmem.c	2026-08-13 23:53:53.007545266 +0000
 @@ -0,0 +1,239 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*

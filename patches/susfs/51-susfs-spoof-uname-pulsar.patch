@@ -15,14 +15,14 @@ Signed-off-by: Pulsar Bot <pulsar@localhost>
 diff --git a/kernel/sys.c b/kernel/sys.c
 --- a/kernel/sys.c
 +++ b/kernel/sys.c
-@@ -35,6 +35,7 @@
+@@ -35,5 +35,6 @@
  #include <linux/nospec.h>
  
  #include <linux/kmsg_dump.h>
 +#include <linux/susfs.h>
  /* Move somewhere else to avoid recompiling? */
  #include <generated/utsrelease.h>
-@@ -1247,3 +1248,6 @@ SYSCALL_DEFINE1(newuname, struct new_utsname __user *, name)
+@@ -1247,4 +1248,7 @@ SYSCALL_DEFINE1(newuname, struct new_utsname __user *, name)
  
  	down_read(&uts_sem);
  	memcpy(&tmp, utsname(), sizeof(tmp));

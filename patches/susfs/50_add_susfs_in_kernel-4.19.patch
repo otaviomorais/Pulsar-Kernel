@@ -1298,27 +1298,3 @@ index 85b3d6ff5..20e6b24a9 100644
  	return 0;
  }
  
-diff --git a/kernel/sys.c b/kernel/sys.c
-index aa2e80715..027d24a05 100644
---- a/kernel/sys.c
-+++ b/kernel/sys.c
-@@ -1240,6 +1240,9 @@ static int override_release(char __user *release, size_t len)
- 	return ret;
- }
- 
-+#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
-+extern void susfs_spoof_uname(struct new_utsname* tmp);
-+#endif
- SYSCALL_DEFINE1(newuname, struct new_utsname __user *, name)
- {
- 	struct new_utsname tmp;
-@@ -1247,6 +1250,9 @@ SYSCALL_DEFINE1(newuname, struct new_utsname __user *, name)
- 
- 	down_read(&uts_sem);
- 	memcpy(&tmp, utsname(), sizeof(tmp));
-+#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
-+	susfs_spoof_uname(&tmp);
-+#endif
- 	if (current_uid().val == 0 &&
- 		(!strncmp(current->comm, "bpfloader", 9) ||
- 		!strncmp(current->comm, "netbpfload", 10) ||

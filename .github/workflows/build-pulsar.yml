@@ -115,7 +115,10 @@ jobs:
           # only the accidental source-tree generated state before building.
           rm -f .config
           rm -rf include/config
-          make -j"$(nproc)" O=out ARCH=arm64 Image dtbs
+          # This 4.19 Kbuild does not reliably add the LLVM target triple.
+          # Clang 20 otherwise sees the ARM64 inline-asm as host x86 asm and
+          # reports registers such as x0/w0/x16 as unknown.
+          make -j"$(nproc)" O=out ARCH=arm64 CC="clang --target=aarch64-linux-gnu" Image dtbs
 
       - name: Collect kernel artifacts
         run: |
@@ -162,7 +165,7 @@ jobs:
               "$LAST_TAG" "$CHANGES" "$DEVICE" > NOTES.md
           else
             printf '**Primeira release Pulsar para %s** (base 4.19.404) com:\n- BPF backport 5.10/5.15 + spoof uname (suporte a ROMs A16/A17)\n- driver ntsync (Wine/Proton) - nativo\n- KernelSU-Next (rsuntk/KernelSU) - nativo\n- io_uring (v5.1 backport)\n- Multi-Gen LRU (MGLRU) backport (CONFIG_LRU_GEN=y)\n- zram com compressor zstd default\n- configs DroidSpaces\n\nFlash via TWRP/recovery.\n' \
-              "$DEVICE" > NOTES.md
+              "$device" > NOTES.md
           fi
           gh release create "$RELEASE" "$ZIP" \
             --title "Pulsar v1.0.0 — ${DEVICE} $(date +%Y%m%d-%H%M)" \

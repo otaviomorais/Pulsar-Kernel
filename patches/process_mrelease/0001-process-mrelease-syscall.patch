@@ -18,8 +18,8 @@ Signed-off-by: Pulsar Bot <pulsar@localhost>
 ---
  arch/arm64/include/asm/unistd32.h |  2 ++
  include/uapi/asm-generic/unistd.h |  2 ++
- mm/oom_kill.c                     | 65 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 69 insertions(+)
+ mm/oom_kill.c                     | 66 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 70 insertions(+)
 
 diff --git a/arch/arm64/include/asm/unistd32.h b/arch/arm64/include/asm/unistd32.h
 --- a/arch/arm64/include/asm/unistd32.h
@@ -52,6 +52,10 @@ diff --git a/include/uapi/asm-generic/unistd.h b/include/uapi/asm-generic/unistd
 diff --git a/mm/oom_kill.c b/mm/oom_kill.c
 --- a/mm/oom_kill.c
 +++ b/mm/oom_kill.c
+@@ -20,2 +20,3 @@
+ #include <linux/oom.h>
++#include <linux/syscalls.h>
+ #include <linux/mm.h>
 @@ -829,6 +829,71 @@ static bool task_will_free_mem(struct task_struct *task)
  
  	return ret;

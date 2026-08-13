@@ -48,3 +48,41 @@ mantendo os contextos estáveis.
   novo símbolo `__arm64_sys_fchmodat2`.
 - Conteúdo do patch: apenas o backport (29 linhas), sem hunks de outros
   diretórios.
+---
+
+# Backports adicionais (tier-2 e tier-3)
+
+## 0002-tier2-tier3-syscalls.patch
+
+Aplica em cima do estado completo do repo (base staging-bpf + todos os
+patches de `patches/*/`). Adiciona os syscalls que faltam para glibc/musl
+e tooling modernos:
+
+### Tier-2
+
+| Syscall | Nr | Origem | Conteúdo |
+|---|---|---|---|
+| memfd_secret | 442 | v5.14 | arm64 `set_direct_map_*` + `rodata_full` (v5.6/v5.9), `mm/secretmem.c` |
+| set_mempolicy_home_node | 450 | v5.17 | fix de memleak (MPOL_BIND), NUMA |
+| cachestat | 451 | v6.5 | `mm/filemap.c` + fix de permissão (nr_recently_evicted) |
+
+### Tier-3 (xattr-at)
+
+| Syscall | Nr | Origem | Conteúdo |
+|---|---|---|---|
+| setxattrat | 463 | v6.13 | struct `xattr_args` (XATTR_ARGS_SIZE_VER0), fd-based incl. O_PATH |
+| getxattrat | 464 | v6.13 | AT_EMPTY_PATH + AT_SYMLINK_NOFOLLOW |
+| listxattrat | 465 | v6.13 | via `copy_struct_from_user` |
+| removexattrat | 466 | v6.13 | UAPI final do mainline (compatível com glibc 2.4x+) |
+
+Wire-up: 64-bit + compat ARM32; `__NR_syscalls` 453 → 467 e
+`__NR_compat_syscalls` 453 → 467.
+
+> **Nota sobre ordenação:** como `device/` vem antes de `syscalls/` em ordem
+> alfabética, o `0001-device-fixes-fastcharge.patch` aplica antes deste —
+> ele não toca em números de syscall, então o contexto fica estável.
+
+## Verificação
+
+- `git apply` sequencial (ordem do workflow) reproduz byte-a-byte a árvore
+  local de desenvolvimento (`d60582dff`), validado por `diff -rq`.

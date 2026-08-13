@@ -1,11 +1,9 @@
 From 20260813-susfs-uname Mon Sep 17 00:00:00 2001
 From: Pulsar Bot <pulsar@localhost>
-Date: Thu, 13 Aug 2026 13:40:00 -0300
+Date: Thu, 13 Aug 2026 13:41:00 -0300
 Subject: [PATCH] susfs: adapt spoof_uname hook to Pulsar 4.19 uname
 
-The Pulsar 4.19 base already carries its own uname spoofing logic, so the
-original SuSFS hunk does not match the current function body.  Insert the
-SuSFS hook into that existing implementation without replacing it.
+Add the SuSFS uname hook to the existing Pulsar 4.19 uname implementation.
 
 Signed-off-by: Pulsar Bot <pulsar@localhost>
 ---
@@ -15,7 +13,7 @@ Signed-off-by: Pulsar Bot <pulsar@localhost>
 diff --git a/kernel/sys.c b/kernel/sys.c
 --- a/kernel/sys.c
 +++ b/kernel/sys.c
-@@ -1240,6 +1240,9 @@ static int override_release(char __user *release, size_t len)
+@@ -1239,6 +1239,9 @@ static int override_release(char __user *release, size_t len)
  	return ret;
  }
  
@@ -25,7 +23,7 @@ diff --git a/kernel/sys.c b/kernel/sys.c
  SYSCALL_DEFINE1(newuname, struct new_utsname __user *, name)
  {
  	struct new_utsname tmp;
-@@ -1249,6 +1252,8 @@ SYSCALL_DEFINE1(newuname, struct new_utsname __user *, name)
+@@ -1248,6 +1251,8 @@ SYSCALL_DEFINE1(newuname, struct new_utsname __user *, name)
  
  	down_read(&uts_sem);
  	memcpy(&tmp, utsname(), sizeof(tmp));

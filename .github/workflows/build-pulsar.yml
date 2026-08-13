@@ -109,6 +109,12 @@ jobs:
           export PATH="$GITHUB_WORKSPACE/toolchain/clang/bin:$PATH"
           export LLVM=1
           export LLVM_IAS=1
+          # Linux 4.19 prepare3 rejects a source tree containing generated
+          # .config/include/config when using an out-of-tree O= build.
+          # The real build configuration lives in out/.config, so remove
+          # only the accidental source-tree generated state before building.
+          rm -f .config
+          rm -rf include/config
           make -j"$(nproc)" O=out ARCH=arm64 Image dtbs
 
       - name: Collect kernel artifacts

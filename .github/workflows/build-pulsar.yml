@@ -4,13 +4,25 @@ on:
   push:
     branches: [ main ]
   workflow_dispatch:
+    inputs:
+      device:
+        description: 'Dispositivo (defconfig base)'
+        required: false
+        default: 'alioth'
 
-env:
-  DEVICE: alioth
+permissions:
+  contents: write
+
+concurrency:
+  group: kernel-build-pulsar
+  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      DEVICE: ${{ github.event.inputs.device || 'alioth' }}
     steps:
       - name: Checkout patches (Pulsar-Kernel)
         uses: actions/checkout@v4
@@ -38,6 +50,9 @@ jobs:
           git fetch origin susfs-rksu-master
           git fetch origin '+refs/tags/*:refs/tags/*' || true
           git checkout 9b28326a
+          # Base e404 ja integra KernelSU via drivers/kernelsu -> ../KernelSU/kernel
+          # (drivers/Kconfig + drivers/Makefile + symlink); o script scripts/patch_ksu_opt_c.py
+          # foi removido do repo - nao e necessario. So os fixes de susfs abaixo.
           sed -i 's/#include <linux\/susfs_def\.h>/#include <linux\/susfs\.h>/g' kernel/sucompat.c
           sed -i -E 's/(susfs_[[:alnum:]_]+)\(arg\)/\1((void __user *)arg)/g' kernel/supercalls.c
           cd ..
@@ -56,21 +71,7 @@ jobs:
           shopt -s nullglob
           for patch in "$GITHUB_WORKSPACE"/droidspace/patches/*/*.patch; do
             echo "==> Applying $patch"
-            if [[ "$patch" == *"patches/susfs/50_add_susfs_in_kernel-4.19.patch" ]]; then
-              tmp_patch="$(mktemp)"
-              awk '
-                BEGIN { skip=0 }
-                /^diff --git a\/kernel\/sys\.c b\/kernel\/sys\.c$/ { skip=1; next }
-                /^diff --git / { skip=0 }
-                !skip { print }
-              ' "$patch" > "$tmp_patch"
-              git apply --verbose "$tmp_patch"
-              rm -f "$tmp_patch"
-            elif [[ "$patch" == *"patches/susfs/51-susfs-spoof-uname-pulsar.patch" ]]; then
-              git apply --verbose --recount "$patch"
-            else
-              git apply --verbose "$patch"
-            fi
+            git apply --verbose "$patch"
           done
 
       - name: Install DroidSpaces config fragment
@@ -82,7 +83,7 @@ jobs:
         run: |
           mkdir -p toolchain
           cd toolchain
-          curl -L --fail -o clang.tar.gz \
+          curl -L -o clang.tar.gz \
             https://github.com/ZyCromerZ/Clang/releases/download/20.0.0git-20250129-release/Clang-20.0.0git-20250129.tar.gz
           tar -xf clang.tar.gz
           CLANG_BIN="$(pwd)/bin"
@@ -95,30 +96,24 @@ jobs:
       - name: Configure kernel (vendor/alioth_defconfig + fragment)
         run: |
           cd kernel
-          export PATH="$GITHUB_WORKSPACE/toolchain/clang/bin:$PATH"
-          export LLVM=1
-          export LLVM_IAS=1
-          make O=out ARCH=arm64 vendor/alioth_defconfig
-          make O=out ARCH=arm64 olddefconfig
-          ./scripts/kconfig/merge_config.sh -m -r out/.config arch/arm64/configs/vendor/droidspace.config
-          make O=out ARCH=arm64 olddefconfig
+          export ARCH=arm64
+          export KBUILD_BUILD_USER=Pulsar
+          export KBUILD_BUILD_HOST=github-actions
+          make O=out LLVM=1 LLVM_IAS=1 HOSTCC=gcc PYTHON=python3 \
+            CROSS_COMPILE=aarch64-linux-gnu- vendor/alioth_defconfig
+          make O=out LLVM=1 LLVM_IAS=1 HOSTCC=gcc PYTHON=python3 \
+            CROSS_COMPILE=aarch64-linux-gnu- vendor/droidspace.config
 
       - name: Build kernel
         run: |
           cd kernel
-          export PATH="$GITHUB_WORKSPACE/toolchain/clang/bin:$PATH"
-          export LLVM=1
-          export LLVM_IAS=1
-          # Linux 4.19 prepare3 rejects a source tree containing generated
-          # .config/include/config when using an out-of-tree O= build.
-          # The real build configuration lives in out/.config, so remove
-          # only the accidental source-tree generated state before building.
-          rm -f .config
-          rm -rf include/config
-          # This 4.19 Kbuild does not reliably add the LLVM target triple.
-          # Clang 20 otherwise sees the ARM64 inline-asm as host x86 asm and
-          # reports registers such as x0/w0/x16 as unknown.
-          make -j"$(nproc)" O=out ARCH=arm64 CC="clang --target=aarch64-linux-gnu" Image dtbs
+          export ARCH=arm64
+          export KBUILD_BUILD_USER=Pulsar
+          export KBUILD_BUILD_HOST=github-actions
+          make -j"$(nproc)" O=out LLVM=1 LLVM_IAS=1 HOSTCC=gcc PYTHON=python3 \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            CC=clang LD=ld.lld AS=llvm-as AR=llvm-ar NM=llvm-nm \
+            OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip
 
       - name: Collect kernel artifacts
         run: |
@@ -157,6 +152,7 @@ jobs:
         run: |
           ZIP="$(ls "$GITHUB_WORKSPACE"/Pulsar-*.zip)"
           RELEASE="v1.0.0-$(date +%Y%m%d-%H%M)"
+          # Changelog: commits desde a última release (se existir)
           LAST_TAG="$(gh release list --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || true)"
           if [ -n "$LAST_TAG" ] && [ "$LAST_TAG" != "$RELEASE" ]; then
             CHANGES="$(gh api "repos/${{ github.repository }}/compare/${LAST_TAG}...${GITHUB_SHA}" \
@@ -165,7 +161,7 @@ jobs:
               "$LAST_TAG" "$CHANGES" "$DEVICE" > NOTES.md
           else
             printf '**Primeira release Pulsar para %s** (base 4.19.404) com:\n- BPF backport 5.10/5.15 + spoof uname (suporte a ROMs A16/A17)\n- driver ntsync (Wine/Proton) - nativo\n- KernelSU-Next (rsuntk/KernelSU) - nativo\n- io_uring (v5.1 backport)\n- Multi-Gen LRU (MGLRU) backport (CONFIG_LRU_GEN=y)\n- zram com compressor zstd default\n- configs DroidSpaces\n\nFlash via TWRP/recovery.\n' \
-              "$device" > NOTES.md
+              "$DEVICE" > NOTES.md
           fi
           gh release create "$RELEASE" "$ZIP" \
             --title "Pulsar v1.0.0 — ${DEVICE} $(date +%Y%m%d-%H%M)" \

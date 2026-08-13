@@ -66,6 +66,8 @@ jobs:
               ' "$patch" > "$tmp_patch"
               git apply --verbose "$tmp_patch"
               rm -f "$tmp_patch"
+            elif [[ "$patch" == *"patches/susfs/51-susfs-spoof-uname-pulsar.patch" ]]; then
+              git apply --verbose --recount "$patch"
             else
               git apply --verbose "$patch"
             fi

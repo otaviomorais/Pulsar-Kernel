@@ -1,0 +1,25 @@
+diff --git a/drivers/soc/qcom/msm_bus/Makefile b/drivers/soc/qcom/msm_bus/Makefile
+index 0c8811247..94de3bbc9 100644
+--- a/drivers/soc/qcom/msm_bus/Makefile
++++ b/drivers/soc/qcom/msm_bus/Makefile
+@@ -10,7 +10,6 @@ ifdef CONFIG_QCOM_BUS_CONFIG_RPMH
+ 	obj-y += msm_bus_fabric_rpmh.o msm_bus_arb_rpmh.o msm_bus_rules.o \
+ 		msm_bus_bimc_rpmh.o msm_bus_noc_rpmh.o msm_bus_proxy_client.o
+ 	obj-$(CONFIG_OF) += msm_bus_of_rpmh.o
+-	obj-$(CONFIG_DEBUG_FS) += msm_bus_dbg_rpmh.o
+ else
+ 	obj-y += msm_bus_fabric_adhoc.o msm_bus_arb_adhoc.o msm_bus_rules.o \
+ 		msm_bus_bimc_adhoc.o msm_bus_noc_adhoc.o msm_bus_qnoc_adhoc.o
+diff --git a/drivers/soc/qcom/msm_bus/msm_bus_core.h b/drivers/soc/qcom/msm_bus/msm_bus_core.h
+index a6b379fe6..eda2863b0 100644
+--- a/drivers/soc/qcom/msm_bus/msm_bus_core.h
++++ b/drivers/soc/qcom/msm_bus/msm_bus_core.h
+@@ -321,7 +321,7 @@ int msm_bus_noc_hw_init(struct msm_bus_fabric_registration *pdata,
+ 	struct msm_bus_hw_algorithm *hw_algo);
+ int msm_bus_bimc_hw_init(struct msm_bus_fabric_registration *pdata,
+ 	struct msm_bus_hw_algorithm *hw_algo);
+-#ifdef CONFIG_DEBUG_FS
++#if 0
+ void msm_bus_dbg_client_data(struct msm_bus_scale_pdata *pdata, int index,
+ 	uint32_t cl);
+ void msm_bus_dbg_commit_data(const char *fabname, void *cdata,

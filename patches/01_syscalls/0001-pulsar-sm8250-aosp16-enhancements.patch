@@ -163,10 +163,11 @@ index c02439a5d..d794b28b9 100644
  		int flag);
 diff --git a/fs/io_uring.c b/fs/io_uring.c
 new file mode 100644
-index 000000000..2091b5b02
+index 000000000..15444c675
 --- /dev/null
 +++ b/fs/io_uring.c
-@@ -0,0 +1,3087 @@
+@@ -0,0 +1,3088 @@
++#include <linux/mmap_lock.h>
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Shared application/kernel submission and completion ring pairs, for
@@ -2728,7 +2729,7 @@ index 000000000..2091b5b02
 +		}
 +
 +		ret = 0;
-+		down_read(&current->mm->mmap_sem);
++		mmap_read_lock(current->mm);
 +		pret = get_user_pages_longterm(ubuf, nr_pages, FOLL_WRITE,
 +						pages, vmas);
 +		if (pret == nr_pages) {
@@ -2745,7 +2746,7 @@ index 000000000..2091b5b02
 +		} else {
 +			ret = pret < 0 ? pret : -EFAULT;
 +		}
-+		up_read(&current->mm->mmap_sem);
++		mmap_read_unlock(current->mm);
 +		if (ret) {
 +			/*
 +			 * if we did partial map, or found file backed vmas,
@@ -6232,7 +6233,7 @@ index c1b775eac..53efb4ae6 100644
 +	return ret;
 +}
 diff --git a/kernel/seccomp.c b/kernel/seccomp.c
-index b56f574e6..a38a61778 100644
+index b56f574e6..f52c2e21b 100644
 --- a/kernel/seccomp.c
 +++ b/kernel/seccomp.c
 @@ -31,6 +31,14 @@
@@ -6393,7 +6394,7 @@ index b56f574e6..a38a61778 100644
  		seccomp_filter_free(freeme);
  	}
  }
-@@ -657,12 +775,137 @@ void secure_computing_strict(int this_syscall)
+@@ -657,12 +775,136 @@ void secure_computing_strict(int this_syscall)
  #else
  
  #ifdef CONFIG_SECCOMP_FILTER
@@ -6433,8 +6434,7 @@ index b56f574e6..a38a61778 100644
 +		int ret;
 +
 +		get_file(addfd->file);
-+		ret = task_fd_install(current, addfd->fd,
-+				      addfd->file, addfd->flags);
++		ret = replace_fd(addfd->fd, addfd->file, addfd->flags);
 +		if (ret)
 +			fput(addfd->file);
 +		addfd->ret = ret ? ret : addfd->fd;
@@ -6531,7 +6531,7 @@ index b56f574e6..a38a61778 100644
  
  	/*
  	 * Make sure that any changes to mode from another thread have
-@@ -670,6 +913,11 @@ static int __seccomp_filter(int this_syscall, const struct seccomp_data *sd,
+@@ -670,6 +912,11 @@ static int __seccomp_filter(int this_syscall, const struct seccomp_data *sd,
  	 */
  	rmb();
  
@@ -6543,7 +6543,7 @@ index b56f574e6..a38a61778 100644
  	filter_ret = seccomp_run_filters(sd, &match);
  	data = filter_ret & SECCOMP_RET_DATA;
  	action = filter_ret & SECCOMP_RET_ACTION_FULL;
-@@ -737,6 +985,11 @@ static int __seccomp_filter(int this_syscall, const struct seccomp_data *sd,
+@@ -737,6 +984,11 @@ static int __seccomp_filter(int this_syscall, const struct seccomp_data *sd,
  		seccomp_log(this_syscall, 0, action, true);
  		return 0;
  
@@ -6555,7 +6555,7 @@ index b56f574e6..a38a61778 100644
  	case SECCOMP_RET_ALLOW:
  		/*
  		 * Note that the "match" filter will always be NULL for
-@@ -847,6 +1100,400 @@ static long seccomp_set_mode_strict(void)
+@@ -847,6 +1099,400 @@ static long seccomp_set_mode_strict(void)
  }
  
  #ifdef CONFIG_SECCOMP_FILTER
@@ -6956,7 +6956,7 @@ index b56f574e6..a38a61778 100644
  /**
   * seccomp_set_mode_filter: internal function for setting seccomp filter
   * @flags:  flags to change filter behavior
-@@ -866,6 +1513,8 @@ static long seccomp_set_mode_filter(unsigned int flags,
+@@ -866,6 +1512,8 @@ static long seccomp_set_mode_filter(unsigned int flags,
  	const unsigned long seccomp_mode = SECCOMP_MODE_FILTER;
  	struct seccomp_filter *prepared = NULL;
  	long ret = -EINVAL;
@@ -6965,7 +6965,7 @@ index b56f574e6..a38a61778 100644
  
  	/* Validate flags. */
  	if (flags & ~SECCOMP_FILTER_FLAG_MASK)
-@@ -876,13 +1525,28 @@ static long seccomp_set_mode_filter(unsigned int flags,
+@@ -876,13 +1524,28 @@ static long seccomp_set_mode_filter(unsigned int flags,
  	if (IS_ERR(prepared))
  		return PTR_ERR(prepared);
  
@@ -6995,7 +6995,7 @@ index b56f574e6..a38a61778 100644
  
  	spin_lock_irq(&current->sighand->siglock);
  
-@@ -900,6 +1564,18 @@ static long seccomp_set_mode_filter(unsigned int flags,
+@@ -900,6 +1563,18 @@ static long seccomp_set_mode_filter(unsigned int flags,
  	spin_unlock_irq(&current->sighand->siglock);
  	if (flags & SECCOMP_FILTER_FLAG_TSYNC)
  		mutex_unlock(&current->signal->cred_guard_mutex);
@@ -7014,7 +7014,7 @@ index b56f574e6..a38a61778 100644
  out_free:
  	seccomp_filter_free(prepared);
  	return ret;
-@@ -924,6 +1600,7 @@ static long seccomp_get_action_avail(const char __user *uaction)
+@@ -924,6 +1599,7 @@ static long seccomp_get_action_avail(const char __user *uaction)
  	case SECCOMP_RET_KILL_THREAD:
  	case SECCOMP_RET_TRAP:
  	case SECCOMP_RET_ERRNO:
@@ -7022,7 +7022,7 @@ index b56f574e6..a38a61778 100644
  	case SECCOMP_RET_TRACE:
  	case SECCOMP_RET_LOG:
  	case SECCOMP_RET_ALLOW:
-@@ -935,6 +1612,20 @@ static long seccomp_get_action_avail(const char __user *uaction)
+@@ -935,6 +1611,20 @@ static long seccomp_get_action_avail(const char __user *uaction)
  	return 0;
  }
  
@@ -7043,7 +7043,7 @@ index b56f574e6..a38a61778 100644
  /* Common entry point for both prctl and syscall. */
  static long do_seccomp(unsigned int op, unsigned int flags,
  		       const char __user *uargs)
-@@ -951,6 +1642,11 @@ static long do_seccomp(unsigned int op, unsigned int flags,
+@@ -951,6 +1641,11 @@ static long do_seccomp(unsigned int op, unsigned int flags,
  			return -EINVAL;
  
  		return seccomp_get_action_avail(uargs);

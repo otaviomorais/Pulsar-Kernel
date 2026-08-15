@@ -83,11 +83,6 @@ jobs:
             git apply --verbose "$patch" || git apply -3 --verbose "$patch" || echo "⚠️ Patch warning: $patch"
           done
 
-      - name: Install DroidSpaces config fragment
-        run: |
-          cp "$GITHUB_WORKSPACE/droidspace/configs/droidspace.config" \
-            kernel/arch/arm64/configs/vendor/droidspace.config
-
       - name: Download Clang 20 (ZyCromerZ)
         run: |
           mkdir -p toolchain
@@ -102,16 +97,32 @@ jobs:
           echo "Clang em: $CLANG_BIN"
           echo "$CLANG_BIN" >> "$GITHUB_PATH"
 
-      - name: Configure kernel (vendor/alioth_defconfig + fragment)
+      - name: Configure kernel (vendor/kona-perf_defconfig + xiaomi fragments)
         run: |
           cd kernel
           export ARCH=arm64
           export KBUILD_BUILD_USER=Pulsar
           export KBUILD_BUILD_HOST=github-actions
+          
+          # Base defconfig Kona
           make O=out LLVM=1 LLVM_IAS=1 HOSTCC=gcc PYTHON=python3 \
-            CROSS_COMPILE=aarch64-linux-gnu- vendor/alioth_defconfig
+            CROSS_COMPILE=aarch64-linux-gnu- vendor/kona-perf_defconfig
+          
+          # Merge fragmentos Xiaomi (sm8250-common + alioth) e DroidSpaces
+          CONFIGS="arch/arm64/configs/vendor/xiaomi/sm8250-common.config"
+          if [ -f "arch/arm64/configs/vendor/xiaomi/${DEVICE}.config" ]; then
+            CONFIGS="$CONFIGS arch/arm64/configs/vendor/xiaomi/${DEVICE}.config"
+          fi
+          if [ -f "$GITHUB_WORKSPACE/droidspace/configs/droidspace.config" ]; then
+            CONFIGS="$CONFIGS $GITHUB_WORKSPACE/droidspace/configs/droidspace.config"
+          fi
+          
+          echo "==> Merging configs: $CONFIGS"
+          ./scripts/kconfig/merge_config.sh -m -O out out/.config $CONFIGS
+          
+          # Atualiza a config com os defaults
           make O=out LLVM=1 LLVM_IAS=1 HOSTCC=gcc PYTHON=python3 \
-            CROSS_COMPILE=aarch64-linux-gnu- vendor/droidspace.config
+            CROSS_COMPILE=aarch64-linux-gnu- olddefconfig
           
           # Habilitar MGLRU e KernelSU se aplicável
           ./scripts/config --file out/.config -e LRU_GEN -e LRU_GEN_ENABLED

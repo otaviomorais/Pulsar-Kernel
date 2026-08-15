@@ -6016,10 +6016,10 @@ index 1cff25cf5..d0c3d60fd 100644
  }
  
 diff --git a/kernel/futex.c b/kernel/futex.c
-index c1b775eac..7764682b8 100644
+index c1b775eac..7a4bdc095 100644
 --- a/kernel/futex.c
 +++ b/kernel/futex.c
-@@ -4186,3 +4186,232 @@ static int __init futex_init(void)
+@@ -4186,3 +4186,272 @@ static int __init futex_init(void)
  	return 0;
  }
  core_initcall(futex_init);
@@ -6238,18 +6238,58 @@ index c1b775eac..7764682b8 100644
 +		       unsigned int, nr_futexes, unsigned int, flags,
 +		       struct compat_timespec __user *, utime)
 +{
++	struct futex_vector *futexv;
++	struct hrtimer_sleeper to;
 +	struct timespec64 ts;
-+	ktime_t *abs_time = NULL;
++	ktime_t time;
++	int ret;
++	clockid_t clockid = flags & FUTEX_CLK_MASK;
++
++	if (flags & ~FUTEX_WAITV_VALID_MASK)
++		return -EINVAL;
++
++	if (!nr_futexes || nr_futexes > FUTEX_WAITV_MAX)
++		return -EINVAL;
 +
 +	if (utime) {
++		int flag_clkid = 0;
++
++		if (clockid == CLOCK_REALTIME)
++			flag_clkid = FLAGS_CLOCKRT;
++		else if (clockid != CLOCK_MONOTONIC)
++			return -EINVAL;
++
 +		if (compat_get_timespec64(&ts, utime))
 +			return -EFAULT;
++
 +		if (!timespec64_valid(&ts))
 +			return -EINVAL;
-+		abs_time = (ktime_t *)&ts;
++
++		time = timespec64_to_ktime(ts);
++		hrtimer_init_on_stack(&to.timer, (flag_clkid & FLAGS_CLOCKRT) ?
++				      CLOCK_REALTIME : CLOCK_MONOTONIC,
++				      HRTIMER_MODE_ABS);
++		hrtimer_init_sleeper(&to, current);
++		hrtimer_set_expires_range_ns(&to.timer, time,
++					     current->timer_slack_ns);
 +	}
 +
-+	return do_futex_waitv(waiters, nr_futexes, flags, abs_time);
++	futexv = kcalloc(nr_futexes, sizeof(*futexv), GFP_KERNEL);
++	if (!futexv)
++		return -ENOMEM;
++
++	ret = futex_parse_waitv(futexv, waiters, nr_futexes);
++	if (!ret)
++		ret = futex_wait_multiple(futexv, nr_futexes,
++					  utime ? &to : NULL);
++
++	if (utime) {
++		hrtimer_cancel(&to.timer);
++		destroy_hrtimer_on_stack(&to.timer);
++	}
++
++	kfree(futexv);
++	return ret;
 +}
 +#endif
 diff --git a/kernel/seccomp.c b/kernel/seccomp.c

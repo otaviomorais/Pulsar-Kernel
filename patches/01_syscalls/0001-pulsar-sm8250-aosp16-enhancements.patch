@@ -4967,10 +4967,15 @@ index bc1f16e9f..4b9514372 100644
 +
  #endif /* __LINUX_BVEC_ITER_H */
 diff --git a/include/linux/compat.h b/include/linux/compat.h
-index 0700afb33..22bb90e43 100644
+index 0700afb33..854fb3b3b 100644
 --- a/include/linux/compat.h
 +++ b/include/linux/compat.h
-@@ -174,6 +174,10 @@ typedef struct {
+@@ -1,3 +1,4 @@
++struct futex_waitv;
+ /* SPDX-License-Identifier: GPL-2.0 */
+ #ifndef _LINUX_COMPAT_H
+ #define _LINUX_COMPAT_H
+@@ -174,6 +175,10 @@ typedef struct {
  	compat_sigset_word	sig[_COMPAT_NSIG_WORDS];
  } compat_sigset_t;
  
@@ -4981,7 +4986,21 @@ index 0700afb33..22bb90e43 100644
  struct compat_sigaction {
  #ifndef __ARCH_HAS_IRIX_SIGACTION
  	compat_uptr_t			sa_handler;
-@@ -1045,3 +1049,5 @@ static inline bool in_compat_syscall(void) { return false; }
+@@ -698,6 +703,13 @@ asmlinkage long compat_sys_waitid(int, compat_pid_t,
+ asmlinkage long compat_sys_futex(u32 __user *uaddr, int op, u32 val,
+ 		struct compat_timespec __user *utime, u32 __user *uaddr2,
+ 		u32 val3);
++struct futex_waitv;
++asmlinkage long compat_sys_futex_waitv(struct futex_waitv __user *waiters,
++				       unsigned int nr_futexes,
++				       unsigned int flags,
++				       struct compat_timespec __user *timeout,
++				       clockid_t clockid);
++
+ asmlinkage long
+ compat_sys_set_robust_list(struct compat_robust_list_head __user *head,
+ 			   compat_size_t len);
+@@ -1045,3 +1057,5 @@ static inline bool in_compat_syscall(void) { return false; }
  #endif /* CONFIG_COMPAT */
  
  #endif /* _LINUX_COMPAT_H */

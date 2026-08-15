@@ -71,12 +71,6 @@ jobs:
       - name: Apply kernel patches (patches/*/*.patch)
         run: |
           cd kernel
-          if [ -d "$GITHUB_WORKSPACE/droidspace/patches/03_susfs" ]; then
-            echo "==> Copying SuSFS source & header files"
-            cp "$GITHUB_WORKSPACE/droidspace/patches/03_susfs/susfs.c" fs/susfs.c 2>/dev/null || true
-            cp "$GITHUB_WORKSPACE/droidspace/patches/03_susfs/susfs.h" include/linux/susfs.h 2>/dev/null || true
-            cp "$GITHUB_WORKSPACE/droidspace/patches/03_susfs/susfs_def.h" include/linux/susfs_def.h 2>/dev/null || true
-          fi
           shopt -s nullglob
           for patch in "$GITHUB_WORKSPACE"/droidspace/patches/*/*.patch; do
             echo "==> Applying $patch"

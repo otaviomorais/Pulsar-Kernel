@@ -49,6 +49,8 @@ jobs:
         run: |
           git clone --depth 1 --branch aosp-16 \
             https://github.com/PocoF3Releases/kernel_xiaomi_sm8250.git kernel
+          mkdir -p kernel/scripts/ufdt
+          git clone --depth 1 https://android.googlesource.com/platform/system/libufdt kernel/scripts/ufdt/libufdt
 
       - name: Setup KernelSU & SuSFS
         if: env.ENABLE_KSU == 'true'

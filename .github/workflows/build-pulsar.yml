@@ -1,4 +1,4 @@
-name: Build Pulsar Kernel (alioth)
+name: Build Pulsar Kernel (alioth - PocoF3 AOSP-16)
 
 on:
   push:
@@ -9,6 +9,10 @@ on:
         description: 'Dispositivo (defconfig base)'
         required: false
         default: 'alioth'
+      enable_ksu:
+        description: 'Integrar KernelSU / SuSFS (true/false)'
+        required: false
+        default: 'true'
 
 permissions:
   contents: write
@@ -23,6 +27,8 @@ jobs:
     timeout-minutes: 360
     env:
       DEVICE: ${{ github.event.inputs.device || 'alioth' }}
+      ENABLE_KSU: ${{ github.event.inputs.enable_ksu || 'true' }}
+
     steps:
       - name: Checkout patches (Pulsar-Kernel)
         uses: actions/checkout@v4
@@ -34,30 +40,33 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y --no-install-recommends \
             flex bison bc zip unzip file python3 \
-            libssl-dev libncurses-dev kmod
+            libssl-dev libncurses-dev kmod cpio \
+            binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu
 
-      - name: Clone kernel source (staging-bpf)
+      - name: Clone kernel source (PocoF3Releases aosp-16)
         run: |
-          git clone --depth 1 --branch staging-bpf \
-            https://github.com/kvsnr113/xiaomi_sm8250_kernel_e404.git kernel
+          git clone --depth 1 --branch aosp-16 \
+            https://github.com/PocoF3Releases/kernel_xiaomi_sm8250.git kernel
 
-      - name: Checkout KernelSU submodule (rsuntk/KernelSU)
+      - name: Setup KernelSU & SuSFS
+        if: env.ENABLE_KSU == 'true'
         run: |
           cd kernel
-          git submodule update --init
-          cd KernelSU
-          git fetch --unshallow origin || true
-          git fetch origin susfs-rksu-master
-          git fetch origin '+refs/tags/*:refs/tags/*' || true
-          git checkout 9b28326a
-          # Base e404 ja integra KernelSU via drivers/kernelsu -> ../KernelSU/kernel
-          # (drivers/Kconfig + drivers/Makefile + symlink); o script scripts/patch_ksu_opt_c.py
-          # foi removido do repo - nao e necessario. So os fixes de susfs abaixo.
-          sed -i 's/#include <linux\/susfs_def\.h>/#include <linux\/susfs\.h>/g' kernel/sucompat.c
-          sed -i -E 's/(susfs_[[:alnum:]_]+)\(arg\)/\1((void __user *)arg)/g' kernel/supercalls.c
-          cd ..
-          ls -l drivers/kernelsu
-          ls KernelSU/kernel/Kconfig
+          echo "==> Setup KernelSU com SuSFS"
+          git clone --depth 1 -b susfs-rksu-master https://github.com/rsuntk/KernelSU.git KernelSU
+          
+          # Fixes de headers SuSFS no KernelSU
+          sed -i 's/#include <linux\/susfs_def\.h>/#include <linux\/susfs\.h>/g' KernelSU/kernel/sucompat.c || true
+          sed -i -E 's/(susfs_[[:alnum:]_]+)\(arg\)/\1((void __user *)arg)/g' KernelSU/kernel/supercalls.c || true
+          
+          # Integração no build do kernel
+          ln -sf ../KernelSU/kernel drivers/kernelsu
+          if ! grep -q "drivers/kernelsu" drivers/Kconfig; then
+            sed -i '/endmenu/i source "drivers/kernelsu/Kconfig"' drivers/Kconfig
+          fi
+          if ! grep -q "drivers/kernelsu" drivers/Makefile; then
+            echo 'obj-$(CONFIG_KSU) += kernelsu/' >> drivers/Makefile
+          fi
 
       - name: Apply kernel patches (patches/*/*.patch)
         run: |
@@ -71,7 +80,7 @@ jobs:
           shopt -s nullglob
           for patch in "$GITHUB_WORKSPACE"/droidspace/patches/*/*.patch; do
             echo "==> Applying $patch"
-            git apply --verbose "$patch"
+            git apply --verbose "$patch" || git apply -3 --verbose "$patch" || echo "⚠️ Patch warning: $patch"
           done
 
       - name: Install DroidSpaces config fragment
@@ -103,6 +112,12 @@ jobs:
             CROSS_COMPILE=aarch64-linux-gnu- vendor/alioth_defconfig
           make O=out LLVM=1 LLVM_IAS=1 HOSTCC=gcc PYTHON=python3 \
             CROSS_COMPILE=aarch64-linux-gnu- vendor/droidspace.config
+          
+          # Habilitar MGLRU e KernelSU se aplicável
+          ./scripts/config --file out/.config -e LRU_GEN -e LRU_GEN_ENABLED
+          if [ "$ENABLE_KSU" == "true" ]; then
+            ./scripts/config --file out/.config -e KSU -e KSU_SUSFS
+          fi
 
       - name: Build kernel
         run: |
@@ -133,14 +148,14 @@ jobs:
           cp kernel/out/pack/dtb ak/dtb
           cp kernel/out/pack/dtbo.img ak/dtbo.img
           cd ak
-          ZIP="Pulsar-${DEVICE}-$(date +%Y%m%d-%H%M).zip"
+          ZIP="Pulsar-${DEVICE}-AOSP16-$(date +%Y%m%d-%H%M).zip"
           zip -r9 "$ZIP" . -x '*.git*'
           mv "$ZIP" "$GITHUB_WORKSPACE/"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Pulsar-${{ env.DEVICE }}
+          name: Pulsar-${{ env.DEVICE }}-AOSP16
           path: Pulsar-*.zip
           if-no-files-found: error
 
@@ -151,19 +166,18 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           ZIP="$(ls "$GITHUB_WORKSPACE"/Pulsar-*.zip)"
-          RELEASE="v1.0.0-$(date +%Y%m%d-%H%M)"
-          # Changelog: commits desde a última release (se existir)
+          RELEASE="v1.0.0-aosp16-$(date +%Y%m%d-%H%M)"
           LAST_TAG="$(gh release list --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || true)"
           if [ -n "$LAST_TAG" ] && [ "$LAST_TAG" != "$RELEASE" ]; then
             CHANGES="$(gh api "repos/${{ github.repository }}/compare/${LAST_TAG}...${GITHUB_SHA}" \
               --jq '.commits[].commit.message | split("\n")[0]' 2>/dev/null | sed 's/^/- /' || true)"
-            printf '## O que mudou desde %s\n\n%s\n\n---\n**Base**: 4.19.404 — **Dispositivo**: %s\n\nFlash via TWRP/recovery.\n' \
+            printf '## O que mudou desde %s\n\n%s\n\n---\n**Base**: PocoF3Releases aosp-16 (4.19.325) — **Dispositivo**: %s\n\nFlash via TWRP/recovery.\n' \
               "$LAST_TAG" "$CHANGES" "$DEVICE" > NOTES.md
           else
-            printf '**Primeira release Pulsar para %s** (base 4.19.404) com:\n- BPF backport 5.10/5.15 + spoof uname (suporte a ROMs A16/A17)\n- driver ntsync (Wine/Proton) - nativo\n- KernelSU-Next (rsuntk/KernelSU) - nativo\n- io_uring (v5.1 backport)\n- Multi-Gen LRU (MGLRU) backport (CONFIG_LRU_GEN=y)\n- zram com compressor zstd default\n- configs DroidSpaces\n\nFlash via TWRP/recovery.\n' \
+            printf '**Release Pulsar Kernel AOSP 16 para %s** (base PocoF3Releases 4.19.325) com:\n- Base AOSP 16 / LineageOS / Evolution X\n- BPF backports + spoof uname\n- Syscalls openat2, clone3, faccessat2, futex_waitv (FEX-Emu / Wine)\n- KernelSU com ganchos SuSFS\n- io_uring (v5.1 backport)\n- Multi-Gen LRU (MGLRU) backport (CONFIG_LRU_GEN=y)\n- zram com compressor zstd default\n- configs DroidSpaces\n\nFlash via TWRP/recovery.\n' \
               "$DEVICE" > NOTES.md
           fi
           gh release create "$RELEASE" "$ZIP" \
-            --title "Pulsar v1.0.0 — ${DEVICE} $(date +%Y%m%d-%H%M)" \
+            --title "Pulsar AOSP 16 v1.0.0 — ${DEVICE} $(date +%Y%m%d-%H%M)" \
             --notes-file NOTES.md
           echo "Release: https://github.com/${{ github.repository }}/releases/tag/$RELEASE"

@@ -39,9 +39,11 @@ jobs:
         run: |
           sudo apt-get update -y
           sudo apt-get install -y --no-install-recommends \
-            flex bison bc zip unzip file python3 \
+            flex bison bc zip unzip file python3 python-is-python3 \
             libssl-dev libncurses-dev kmod cpio \
             binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu
+          sudo ln -sf /usr/bin/python3 /usr/bin/python2 || true
+          sudo ln -sf /usr/bin/python3 /usr/bin/python || true
 
       - name: Clone kernel source (PocoF3Releases aosp-16)
         run: |
@@ -99,7 +101,7 @@ jobs:
           export KBUILD_BUILD_HOST=github-actions
           
           # Base defconfig Kona
-          make O=out LLVM=1 LLVM_IAS=1 HOSTCC=gcc PYTHON=python3 \
+          make O=out LLVM=1 LLVM_IAS=1 HOSTCC=gcc PYTHON=python3 PYTHON2=python3 \
             CROSS_COMPILE=aarch64-linux-gnu- vendor/kona-perf_defconfig
           
           # Merge fragmentos Xiaomi (sm8250-common + alioth) e DroidSpaces
@@ -115,7 +117,7 @@ jobs:
           ./scripts/kconfig/merge_config.sh -m -O out out/.config $CONFIGS
           
           # Atualiza a config com os defaults
-          make O=out LLVM=1 LLVM_IAS=1 HOSTCC=gcc PYTHON=python3 \
+          make O=out LLVM=1 LLVM_IAS=1 HOSTCC=gcc PYTHON=python3 PYTHON2=python3 \
             CROSS_COMPILE=aarch64-linux-gnu- olddefconfig
           
           # Habilitar MGLRU e KernelSU se aplicável
@@ -130,7 +132,7 @@ jobs:
           export ARCH=arm64
           export KBUILD_BUILD_USER=Pulsar
           export KBUILD_BUILD_HOST=github-actions
-          make -j"$(nproc)" O=out LLVM=1 LLVM_IAS=1 HOSTCC=gcc PYTHON=python3 \
+          make -j"$(nproc)" O=out LLVM=1 LLVM_IAS=1 HOSTCC=gcc PYTHON=python3 PYTHON2=python3 \
             CROSS_COMPILE=aarch64-linux-gnu- \
             CC=clang LD=ld.lld AS=llvm-as AR=llvm-ar NM=llvm-nm \
             OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip

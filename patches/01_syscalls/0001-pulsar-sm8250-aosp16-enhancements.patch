@@ -4967,7 +4967,7 @@ index bc1f16e9f..4b9514372 100644
 +
  #endif /* __LINUX_BVEC_ITER_H */
 diff --git a/include/linux/compat.h b/include/linux/compat.h
-index 0700afb33..c88647b66 100644
+index 0700afb33..22bb90e43 100644
 --- a/include/linux/compat.h
 +++ b/include/linux/compat.h
 @@ -174,6 +174,10 @@ typedef struct {
@@ -4981,6 +4981,12 @@ index 0700afb33..c88647b66 100644
  struct compat_sigaction {
  #ifndef __ARCH_HAS_IRIX_SIGACTION
  	compat_uptr_t			sa_handler;
+@@ -1045,3 +1049,5 @@ static inline bool in_compat_syscall(void) { return false; }
+ #endif /* CONFIG_COMPAT */
+ 
+ #endif /* _LINUX_COMPAT_H */
++
++asmlinkage long compat_sys_futex_waitv(struct futex_waitv __user *waiters, unsigned int nr_futexes, unsigned int flags, struct compat_timespec __user *timeout, clockid_t clockid);
 diff --git a/include/linux/damon.h b/include/linux/damon.h
 new file mode 100644
 index 000000000..5fda53dcd
@@ -6016,10 +6022,10 @@ index 1cff25cf5..d0c3d60fd 100644
  }
  
 diff --git a/kernel/futex.c b/kernel/futex.c
-index c1b775eac..7a4bdc095 100644
+index c1b775eac..e79265dcc 100644
 --- a/kernel/futex.c
 +++ b/kernel/futex.c
-@@ -4186,3 +4186,272 @@ static int __init futex_init(void)
+@@ -4186,3 +4186,271 @@ static int __init futex_init(void)
  	return 0;
  }
  core_initcall(futex_init);
@@ -6234,24 +6240,23 @@ index c1b775eac..7a4bdc095 100644
 +}
 +
 +#ifdef CONFIG_COMPAT
-+COMPAT_SYSCALL_DEFINE4(futex_waitv, struct futex_waitv __user *, waiters,
++COMPAT_SYSCALL_DEFINE5(futex_waitv, struct futex_waitv __user *, waiters,
 +		       unsigned int, nr_futexes, unsigned int, flags,
-+		       struct compat_timespec __user *, utime)
++		       struct compat_timespec __user *, timeout, clockid_t, clockid)
 +{
-+	struct futex_vector *futexv;
 +	struct hrtimer_sleeper to;
++	struct futex_vector *futexv;
 +	struct timespec64 ts;
 +	ktime_t time;
 +	int ret;
-+	clockid_t clockid = flags & FUTEX_CLK_MASK;
 +
-+	if (flags & ~FUTEX_WAITV_VALID_MASK)
++	if (flags)
 +		return -EINVAL;
 +
-+	if (!nr_futexes || nr_futexes > FUTEX_WAITV_MAX)
++	if (!nr_futexes || nr_futexes > FUTEX_WAITV_MAX || !waiters)
 +		return -EINVAL;
 +
-+	if (utime) {
++	if (timeout) {
 +		int flag_clkid = 0;
 +
 +		if (clockid == CLOCK_REALTIME)
@@ -6259,7 +6264,7 @@ index c1b775eac..7a4bdc095 100644
 +		else if (clockid != CLOCK_MONOTONIC)
 +			return -EINVAL;
 +
-+		if (compat_get_timespec64(&ts, utime))
++		if (compat_get_timespec64(&ts, timeout))
 +			return -EFAULT;
 +
 +		if (!timespec64_valid(&ts))
@@ -6281,9 +6286,9 @@ index c1b775eac..7a4bdc095 100644
 +	ret = futex_parse_waitv(futexv, waiters, nr_futexes);
 +	if (!ret)
 +		ret = futex_wait_multiple(futexv, nr_futexes,
-+					  utime ? &to : NULL);
++					  timeout ? &to : NULL);
 +
-+	if (utime) {
++	if (timeout) {
 +		hrtimer_cancel(&to.timer);
 +		destroy_hrtimer_on_stack(&to.timer);
 +	}

@@ -145,7 +145,13 @@ jobs:
           ls -la out/arch/arm64/boot/
           mkdir -p out/pack
           cp out/arch/arm64/boot/Image out/pack/Image
-          find out/arch/arm64/boot/dts -name '*.dtb' -exec cat {} + > out/pack/dtb
+          if [ -f out/arch/arm64/boot/dts/vendor/qcom/kona.dtb ]; then
+            cat out/arch/arm64/boot/dts/vendor/qcom/kona.dtb \
+                out/arch/arm64/boot/dts/vendor/qcom/kona-v2.dtb \
+                out/arch/arm64/boot/dts/vendor/qcom/kona-v2.1.dtb > out/pack/dtb
+          else
+            find out/arch/arm64/boot/dts -name 'kona*.dtb' -exec cat {} + > out/pack/dtb
+          fi
           cp out/arch/arm64/boot/dtbo.img out/pack/dtbo.img
           ls -la out/pack/
 

@@ -7226,20 +7226,6 @@ index 808bdc260..b0b045778 100644
  /**
   *  sys_rt_sigsuspend - replace the signal mask for a value with the
   *	@unewset value until a signal is received
-diff --git a/kernel/sys.c b/kernel/sys.c
-index fa98ba2e9..6788297ef 100644
---- a/kernel/sys.c
-+++ b/kernel/sys.c
-@@ -1247,6 +1247,10 @@ SYSCALL_DEFINE1(newuname, struct new_utsname __user *, name)
- 	down_read(&uts_sem);
- 	memcpy(&tmp, utsname(), sizeof(tmp));
- 	up_read(&uts_sem);
-+
-+	/* Spoof 5.15 release string for FEX-Emu / Box64 / modern Android compatibility */
-+	strlcpy(tmp.release, "5.15.0-pulsar", sizeof(tmp.release));
-+
- 	if (copy_to_user(name, &tmp, sizeof(tmp)))
- 		return -EFAULT;
  
 diff --git a/kernel/sys_ni.c b/kernel/sys_ni.c
 index 80f1bb9cf..519f539bc 100644

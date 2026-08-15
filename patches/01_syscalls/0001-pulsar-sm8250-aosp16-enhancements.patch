@@ -12,7 +12,7 @@ index 9f037f0d1..672a0db48 100644
  
  #define __ARCH_WANT_SYS_CLONE
 diff --git a/arch/arm64/include/asm/unistd32.h b/arch/arm64/include/asm/unistd32.h
-index b38a21ada..0d3c049e9 100644
+index b38a21ada..20b2ce268 100644
 --- a/arch/arm64/include/asm/unistd32.h
 +++ b/arch/arm64/include/asm/unistd32.h
 @@ -827,6 +827,12 @@ __SYSCALL(__NR_pidfd_open, sys_pidfd_open)
@@ -24,7 +24,7 @@ index b38a21ada..0d3c049e9 100644
 +#define __NR_faccessat2 439
 +__SYSCALL(__NR_faccessat2, sys_faccessat2)
 +#define __NR_futex_waitv 449
-+__SYSCALL(__NR_futex_waitv, compat_sys_futex_waitv)
++__SYSCALL(__NR_futex_waitv, sys_futex_waitv)
  #define __NR_epoll_pwait2 441
  __SYSCALL(__NR_epoll_pwait2, compat_sys_epoll_pwait2)
  
@@ -6016,10 +6016,10 @@ index 1cff25cf5..d0c3d60fd 100644
  }
  
 diff --git a/kernel/futex.c b/kernel/futex.c
-index c1b775eac..53efb4ae6 100644
+index c1b775eac..7764682b8 100644
 --- a/kernel/futex.c
 +++ b/kernel/futex.c
-@@ -4186,3 +4186,212 @@ static int __init futex_init(void)
+@@ -4186,3 +4186,232 @@ static int __init futex_init(void)
  	return 0;
  }
  core_initcall(futex_init);
@@ -6232,6 +6232,26 @@ index c1b775eac..53efb4ae6 100644
 +	kfree(futexv);
 +	return ret;
 +}
++
++#ifdef CONFIG_COMPAT
++COMPAT_SYSCALL_DEFINE4(futex_waitv, struct futex_waitv __user *, waiters,
++		       unsigned int, nr_futexes, unsigned int, flags,
++		       struct compat_timespec __user *, utime)
++{
++	struct timespec64 ts;
++	ktime_t *abs_time = NULL;
++
++	if (utime) {
++		if (compat_get_timespec64(&ts, utime))
++			return -EFAULT;
++		if (!timespec64_valid(&ts))
++			return -EINVAL;
++		abs_time = (ktime_t *)&ts;
++	}
++
++	return do_futex_waitv(waiters, nr_futexes, flags, abs_time);
++}
++#endif
 diff --git a/kernel/seccomp.c b/kernel/seccomp.c
 index b56f574e6..f52c2e21b 100644
 --- a/kernel/seccomp.c

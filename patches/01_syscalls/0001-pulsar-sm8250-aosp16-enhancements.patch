@@ -29,10 +29,10 @@ index b38a21ada..0d3c049e9 100644
  __SYSCALL(__NR_epoll_pwait2, compat_sys_epoll_pwait2)
  
 diff --git a/block/bio.c b/block/bio.c
-index 397a9e899..dad73f7b3 100644
+index 397a9e899..d733fabb5 100644
 --- a/block/bio.c
 +++ b/block/bio.c
-@@ -879,24 +879,72 @@ static int __bio_iov_iter_get_pages(struct bio *bio, struct iov_iter *iter)
+@@ -879,24 +879,69 @@ static int __bio_iov_iter_get_pages(struct bio *bio, struct iov_iter *iter)
  	return 0;
  }
  
@@ -50,9 +50,6 @@ index 397a9e899..dad73f7b3 100644
 +				bv->bv_offset + iter->iov_offset);
 +	if (size == len) {
 +		if (!bio_flagged(bio, BIO_NO_PAGE_REF)) {
-+			struct page *page;
-+			int i;
-+
 +			get_page(bv->bv_page);
 +		}
 +
@@ -113,7 +110,7 @@ index 397a9e899..dad73f7b3 100644
  
  		if (unlikely(ret))
  			return bio->bi_vcnt > orig_vcnt ? 0 : ret;
-@@ -1643,7 +1691,8 @@ static void bio_dirty_fn(struct work_struct *work)
+@@ -1643,7 +1688,8 @@ static void bio_dirty_fn(struct work_struct *work)
  		next = bio->bi_private;
  
  		bio_set_pages_dirty(bio);
@@ -123,7 +120,7 @@ index 397a9e899..dad73f7b3 100644
  		bio_put(bio);
  	}
  }
-@@ -1659,7 +1708,8 @@ void bio_check_pages_dirty(struct bio *bio)
+@@ -1659,7 +1705,8 @@ void bio_check_pages_dirty(struct bio *bio)
  			goto defer;
  	}
  
@@ -5567,7 +5564,7 @@ index 000000000..3b01ad5b4
 +
 +#endif // #ifndef KSU_SUSFS_DEF_H
 diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
-index 4741aacb8..bcad232b1 100644
+index 4741aacb8..026683272 100644
 --- a/include/linux/syscalls.h
 +++ b/include/linux/syscalls.h
 @@ -69,6 +69,9 @@ struct file_handle;
@@ -5588,6 +5585,20 @@ index 4741aacb8..bcad232b1 100644
  asmlinkage long sys_chdir(const char __user *filename);
  asmlinkage long sys_fchdir(unsigned int fd);
  asmlinkage long sys_chroot(const char __user *filename);
+@@ -1239,11 +1243,11 @@ static inline int ksys_chmod(const char __user *filename, umode_t mode)
+ 	return do_fchmodat(AT_FDCWD, filename, mode);
+ }
+ 
+-extern long do_faccessat(int dfd, const char __user *filename, int mode);
++extern long do_faccessat(int dfd, const char __user *filename, int mode, int flags);
+ 
+ static inline long ksys_access(const char __user *filename, int mode)
+ {
+-	return do_faccessat(AT_FDCWD, filename, mode);
++	return do_faccessat(AT_FDCWD, filename, mode, 0);
+ }
+ 
+ extern int do_fchownat(int dfd, const char __user *filename, uid_t user,
 @@ -1310,3 +1314,12 @@ static inline unsigned int ksys_personality(unsigned int personality)
  }
  
@@ -6004,10 +6015,10 @@ index 1cff25cf5..d0c3d60fd 100644
  }
  
 diff --git a/kernel/futex.c b/kernel/futex.c
-index c1b775eac..f641544d6 100644
+index c1b775eac..53efb4ae6 100644
 --- a/kernel/futex.c
 +++ b/kernel/futex.c
-@@ -4186,3 +4186,211 @@ static int __init futex_init(void)
+@@ -4186,3 +4186,212 @@ static int __init futex_init(void)
  	return 0;
  }
  core_initcall(futex_init);
@@ -6195,9 +6206,10 @@ index c1b775eac..f641544d6 100644
 +			return -EINVAL;
 +
 +		time = timespec64_to_ktime(ts);
-+		hrtimer_init_sleeper_on_stack(&to, (flag_clkid & FLAGS_CLOCKRT) ?
-+					      CLOCK_REALTIME : CLOCK_MONOTONIC,
-+					      HRTIMER_MODE_ABS);
++		hrtimer_init_on_stack(&to.timer, (flag_clkid & FLAGS_CLOCKRT) ?
++				      CLOCK_REALTIME : CLOCK_MONOTONIC,
++				      HRTIMER_MODE_ABS);
++		hrtimer_init_sleeper(&to, current);
 +		hrtimer_set_expires_range_ns(&to.timer, time,
 +					     current->timer_slack_ns);
 +	}

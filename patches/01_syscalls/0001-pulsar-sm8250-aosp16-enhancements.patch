@@ -163,11 +163,10 @@ index c02439a5d..d794b28b9 100644
  		int flag);
 diff --git a/fs/io_uring.c b/fs/io_uring.c
 new file mode 100644
-index 000000000..15444c675
+index 000000000..d67e2fdf7
 --- /dev/null
 +++ b/fs/io_uring.c
 @@ -0,0 +1,3088 @@
-+#include <linux/mmap_lock.h>
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Shared application/kernel submission and completion ring pairs, for
@@ -223,6 +222,7 @@ index 000000000..15444c675
 +#include <linux/fdtable.h>
 +#include <linux/mm.h>
 +#include <linux/mman.h>
++#include <linux/mmap_lock.h>
 +#include <linux/mmu_context.h>
 +#include <linux/percpu.h>
 +#include <linux/slab.h>

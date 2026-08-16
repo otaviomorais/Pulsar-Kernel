@@ -12,11 +12,11 @@ on:
       enable_ksu:
         description: 'Integrar KernelSU / SuSFS (true/false)'
         required: false
-        default: 'false'
+        default: 'true'
       apply_patches:
         description: 'Aplicar patches adicionais (true/false)'
         required: false
-        default: 'false'
+        default: 'true'
 
 permissions:
   contents: write
@@ -31,8 +31,8 @@ jobs:
     timeout-minutes: 360
     env:
       DEVICE: ${{ github.event.inputs.device || 'alioth' }}
-      ENABLE_KSU: ${{ github.event.inputs.enable_ksu || 'false' }}
-      APPLY_PATCHES: ${{ github.event.inputs.apply_patches || 'false' }}
+      ENABLE_KSU: ${{ github.event.inputs.enable_ksu || 'true' }}
+      APPLY_PATCHES: ${{ github.event.inputs.apply_patches || 'true' }}
 
     steps:
       - name: Checkout patches (Pulsar-Kernel)
@@ -54,8 +54,6 @@ jobs:
         run: |
           git clone --depth 1 --branch aosp-16 \
             https://github.com/PocoF3Releases/kernel_xiaomi_sm8250.git kernel
-          mkdir -p kernel/scripts/ufdt
-          git clone --depth 1 https://android.googlesource.com/platform/system/libufdt kernel/scripts/ufdt/libufdt
 
       - name: Setup KernelSU & SuSFS
         if: env.ENABLE_KSU == 'true'
@@ -101,31 +99,28 @@ jobs:
           echo "Clang em: $CLANG_BIN"
           echo "$CLANG_BIN" >> "$GITHUB_PATH"
 
-      - name: Configure kernel (vendor/kona-perf_defconfig + xiaomi fragments)
+      - name: Configure kernel (${{ env.DEVICE }}_defconfig + DroidSpaces)
         run: |
           cd kernel
           export ARCH=arm64
           export KBUILD_BUILD_USER=Pulsar
           export KBUILD_BUILD_HOST=github-actions
           
-          # Base defconfig Kona
+          # Base defconfig oficial dedicado do Alioth
           make O=out LLVM=1 LLVM_IAS=1 HOSTCC=gcc PYTHON=python3 PYTHON2=python3 \
-            CROSS_COMPILE=aarch64-linux-gnu- vendor/kona-perf_defconfig
+            CROSS_COMPILE=aarch64-linux-gnu- ${DEVICE}_defconfig
           
-          # Merge fragmentos Xiaomi (sm8250-common + alioth)
-          CONFIGS="arch/arm64/configs/vendor/xiaomi/sm8250-common.config"
-          if [ -f "arch/arm64/configs/vendor/xiaomi/${DEVICE}.config" ]; then
-            CONFIGS="$CONFIGS arch/arm64/configs/vendor/xiaomi/${DEVICE}.config"
+          # Se existir fragmento DroidSpaces, mescla na config
+          if [ -f "$GITHUB_WORKSPACE/droidspace/configs/droidspace.config" ]; then
+            echo "==> Mesclando configs do DroidSpaces"
+            ./scripts/kconfig/merge_config.sh -m -O out out/.config \
+              "$GITHUB_WORKSPACE/droidspace/configs/droidspace.config"
+            make O=out LLVM=1 LLVM_IAS=1 HOSTCC=gcc PYTHON=python3 PYTHON2=python3 \
+              CROSS_COMPILE=aarch64-linux-gnu- olddefconfig
           fi
           
-          echo "==> Merging configs: $CONFIGS"
-          ./scripts/kconfig/merge_config.sh -m -O out out/.config $CONFIGS
-          
-          # Atualiza a config com os defaults
-          make O=out LLVM=1 LLVM_IAS=1 HOSTCC=gcc PYTHON=python3 PYTHON2=python3 \
-            CROSS_COMPILE=aarch64-linux-gnu- olddefconfig
-          
-          # Habilitar KernelSU se aplicável
+          # Habilitar MGLRU e KernelSU se aplicável
+          ./scripts/config --file out/.config -e LRU_GEN -e LRU_GEN_ENABLED
           if [ "$ENABLE_KSU" == "true" ]; then
             ./scripts/config --file out/.config -e KSU -e KSU_SUSFS
           fi
@@ -140,7 +135,7 @@ jobs:
             CROSS_COMPILE=aarch64-linux-gnu- \
             CC=clang LD=ld.lld AS=llvm-as AR=llvm-ar NM=llvm-nm \
             OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip \
-            Image dtbs dtbo.img
+            Image dtbs
 
       - name: Collect kernel artifacts
         run: |
@@ -149,17 +144,11 @@ jobs:
           mkdir -p out/pack
           cp out/arch/arm64/boot/Image out/pack/Image
           
-          # DTB nativo para alioth (Snapdragon 870 = kona-v2.1 SoC)
-          if [ -f out/arch/arm64/boot/dts/vendor/qcom/kona-v2.1.dtb ]; then
-            echo "==> Usando kona-v2.1.dtb nativo compilado"
-            cp out/arch/arm64/boot/dts/vendor/qcom/kona-v2.1.dtb out/pack/dtb
-          fi
-          
-          # DTBO nativo gerado pelo Makefile do kernel
-          if [ -f out/arch/arm64/boot/dtbo.img ]; then
-            echo "==> Usando dtbo.img nativo compilado"
-            cp out/arch/arm64/boot/dtbo.img out/pack/dtbo.img
-          fi
+          # Concatena a tabela de DTBs Kona oficial para alioth (SM8250 / Snapdragon 870)
+          # O bootloader da Qualcomm (ABL) requer todos os DTBs kona concatenados para vendor_boot
+          cat out/arch/arm64/boot/dts/vendor/qcom/kona.dtb \
+              out/arch/arm64/boot/dts/vendor/qcom/kona-v2.dtb \
+              out/arch/arm64/boot/dts/vendor/qcom/kona-v2.1.dtb > out/pack/dtb
           
           ls -la out/pack/
 
@@ -169,7 +158,6 @@ jobs:
           cp -r "$GITHUB_WORKSPACE/droidspace/anykernel/." ak/
           cp kernel/out/pack/Image ak/Image
           cp kernel/out/pack/dtb ak/dtb
-          cp kernel/out/pack/dtbo.img ak/dtbo.img
           cd ak
           ZIP="Pulsar-${DEVICE}-AOSP16-$(date +%Y%m%d-%H%M).zip"
           zip -r9 "$ZIP" . -x '*.git*'
@@ -197,7 +185,7 @@ jobs:
             printf '## O que mudou desde %s\n\n%s\n\n---\n**Base**: PocoF3Releases aosp-16 (4.19.325) — **Dispositivo**: %s\n\nFlash via TWRP/recovery.\n' \
               "$LAST_TAG" "$CHANGES" "$DEVICE" > NOTES.md
           else
-            printf '**Release Pulsar Kernel AOSP 16 para %s** (base PocoF3Releases 4.19.325) com:\n- Base AOSP 16 / LineageOS / Evolution X\n- BPF backports + spoof uname\n- Syscalls openat2, clone3, faccessat2, futex_waitv (FEX-Emu / Wine)\n- KernelSU com ganchos SuSFS\n- io_uring (v5.1 backport)\n- Multi-Gen LRU (MGLRU) backport (CONFIG_LRU_GEN=y)\n- zram com compressor zstd default\n- configs DroidSpaces\n\nFlash via TWRP/recovery.\n' \
+            printf '**Release Pulsar Kernel AOSP 16 para %s** (base PocoF3Releases 4.19.325) com:\n- Base oficial alioth_defconfig (PocoF3Releases)\n- Concatenação completa de DTBs Kona no vendor_boot\n- Backports de Syscalls (openat2, faccessat2, close_range, futex_waitv 64/32-bit)\n- KernelSU com ganchos SuSFS 1.5.x\n- io_uring (v5.1 backport)\n- Multi-Gen LRU (MGLRU) backport\n- zram com compressor zstd default\n- configs DroidSpaces\n\nFlash via TWRP/recovery.\n' \
               "$DEVICE" > NOTES.md
           fi
           gh release create "$RELEASE" "$ZIP" \

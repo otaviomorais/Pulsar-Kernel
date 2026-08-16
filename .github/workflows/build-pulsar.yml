@@ -12,7 +12,11 @@ on:
       enable_ksu:
         description: 'Integrar KernelSU / SuSFS (true/false)'
         required: false
-        default: 'true'
+        default: 'false'
+      apply_patches:
+        description: 'Aplicar patches adicionais (true/false)'
+        required: false
+        default: 'false'
 
 permissions:
   contents: write
@@ -27,7 +31,8 @@ jobs:
     timeout-minutes: 360
     env:
       DEVICE: ${{ github.event.inputs.device || 'alioth' }}
-      ENABLE_KSU: ${{ github.event.inputs.enable_ksu || 'true' }}
+      ENABLE_KSU: ${{ github.event.inputs.enable_ksu || 'false' }}
+      APPLY_PATCHES: ${{ github.event.inputs.apply_patches || 'false' }}
 
     steps:
       - name: Checkout patches (Pulsar-Kernel)
@@ -73,6 +78,7 @@ jobs:
           fi
 
       - name: Apply kernel patches (patches/*/*.patch)
+        if: env.APPLY_PATCHES == 'true'
         run: |
           cd kernel
           shopt -s nullglob
@@ -106,13 +112,10 @@ jobs:
           make O=out LLVM=1 LLVM_IAS=1 HOSTCC=gcc PYTHON=python3 PYTHON2=python3 \
             CROSS_COMPILE=aarch64-linux-gnu- vendor/kona-perf_defconfig
           
-          # Merge fragmentos Xiaomi (sm8250-common + alioth) e DroidSpaces
+          # Merge fragmentos Xiaomi (sm8250-common + alioth)
           CONFIGS="arch/arm64/configs/vendor/xiaomi/sm8250-common.config"
           if [ -f "arch/arm64/configs/vendor/xiaomi/${DEVICE}.config" ]; then
             CONFIGS="$CONFIGS arch/arm64/configs/vendor/xiaomi/${DEVICE}.config"
-          fi
-          if [ -f "$GITHUB_WORKSPACE/droidspace/configs/droidspace.config" ]; then
-            CONFIGS="$CONFIGS $GITHUB_WORKSPACE/droidspace/configs/droidspace.config"
           fi
           
           echo "==> Merging configs: $CONFIGS"
@@ -122,8 +125,7 @@ jobs:
           make O=out LLVM=1 LLVM_IAS=1 HOSTCC=gcc PYTHON=python3 PYTHON2=python3 \
             CROSS_COMPILE=aarch64-linux-gnu- olddefconfig
           
-          # Habilitar MGLRU e KernelSU se aplicável
-          ./scripts/config --file out/.config -e LRU_GEN -e LRU_GEN_ENABLED
+          # Habilitar KernelSU se aplicável
           if [ "$ENABLE_KSU" == "true" ]; then
             ./scripts/config --file out/.config -e KSU -e KSU_SUSFS
           fi
@@ -137,7 +139,8 @@ jobs:
           make -j"$(nproc)" O=out LLVM=1 LLVM_IAS=1 HOSTCC=gcc PYTHON=python3 PYTHON2=python3 \
             CROSS_COMPILE=aarch64-linux-gnu- \
             CC=clang LD=ld.lld AS=llvm-as AR=llvm-ar NM=llvm-nm \
-            OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip
+            OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip \
+            Image dtbs dtbo.img
 
       - name: Collect kernel artifacts
         run: |
@@ -146,24 +149,15 @@ jobs:
           mkdir -p out/pack
           cp out/arch/arm64/boot/Image out/pack/Image
           
-          # DTB específico para alioth (Snapdragon 870 = kona-v2.1 SoC)
+          # DTB nativo para alioth (Snapdragon 870 = kona-v2.1 SoC)
           if [ -f out/arch/arm64/boot/dts/vendor/qcom/kona-v2.1.dtb ]; then
-            echo "==> Usando kona-v2.1.dtb compilado"
+            echo "==> Usando kona-v2.1.dtb nativo compilado"
             cp out/arch/arm64/boot/dts/vendor/qcom/kona-v2.1.dtb out/pack/dtb
-          elif [ -f "$GITHUB_WORKSPACE/droidspace/boot-assets/dtb" ]; then
-            echo "==> Usando dtb de boot-assets"
-            cp "$GITHUB_WORKSPACE/droidspace/boot-assets/dtb" out/pack/dtb
           fi
           
-          # DTBO específico para alioth (1 overlay: alioth-sm8250-overlay.dtbo)
-          if [ -f out/arch/arm64/boot/dts/vendor/qcom/alioth-sm8250-overlay.dtbo ]; then
-            echo "==> Criando dtbo.img dedicado para alioth"
-            python3 scripts/ufdt/libufdt/utils/src/mkdtboimg.py create out/pack/dtbo.img --page_size=4096 \
-              out/arch/arm64/boot/dts/vendor/qcom/alioth-sm8250-overlay.dtbo
-          elif [ -f "$GITHUB_WORKSPACE/droidspace/boot-assets/dtbo.img" ]; then
-            echo "==> Usando dtbo.img de boot-assets"
-            cp "$GITHUB_WORKSPACE/droidspace/boot-assets/dtbo.img" out/pack/dtbo.img
-          else
+          # DTBO nativo gerado pelo Makefile do kernel
+          if [ -f out/arch/arm64/boot/dtbo.img ]; then
+            echo "==> Usando dtbo.img nativo compilado"
             cp out/arch/arm64/boot/dtbo.img out/pack/dtbo.img
           fi
           

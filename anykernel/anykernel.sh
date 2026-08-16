@@ -43,20 +43,6 @@ fi;
 write_boot;
 ## end install
 
-## vendor_boot shell variables
-block=/dev/block/bootdevice/by-name/vendor_boot;
-is_slot_device=1;
-ramdisk_compression=auto;
-patch_vbmeta_flag=auto;
-
-# reset for vendor_boot patching
-reset_ak;
-
-# vendor_boot install
-dump_boot;
-write_boot;
-## end vendor_boot install
-
 ui_print " ";
 ui_print " Pulsar Kernel — POCO F3 (alioth) ";
 ui_print " --- Install Complete --- ";

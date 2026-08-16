@@ -57,9 +57,6 @@ dump_boot;
 write_boot;
 ## end vendor_boot install
 
-## dtbo install
-flash_dtbo;
-
 ui_print " ";
 ui_print " Pulsar Kernel — POCO F3 (alioth) ";
 ui_print " --- Install Complete --- ";

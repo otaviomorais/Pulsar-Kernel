@@ -145,14 +145,28 @@ jobs:
           ls -la out/arch/arm64/boot/
           mkdir -p out/pack
           cp out/arch/arm64/boot/Image out/pack/Image
-          if [ -f out/arch/arm64/boot/dts/vendor/qcom/kona.dtb ]; then
-            cat out/arch/arm64/boot/dts/vendor/qcom/kona.dtb \
-                out/arch/arm64/boot/dts/vendor/qcom/kona-v2.dtb \
-                out/arch/arm64/boot/dts/vendor/qcom/kona-v2.1.dtb > out/pack/dtb
-          else
-            find out/arch/arm64/boot/dts -name 'kona*.dtb' -exec cat {} + > out/pack/dtb
+          
+          # DTB específico para alioth (Snapdragon 870 = kona-v2.1 SoC)
+          if [ -f out/arch/arm64/boot/dts/vendor/qcom/kona-v2.1.dtb ]; then
+            echo "==> Usando kona-v2.1.dtb compilado"
+            cp out/arch/arm64/boot/dts/vendor/qcom/kona-v2.1.dtb out/pack/dtb
+          elif [ -f "$GITHUB_WORKSPACE/droidspace/boot-assets/dtb" ]; then
+            echo "==> Usando dtb de boot-assets"
+            cp "$GITHUB_WORKSPACE/droidspace/boot-assets/dtb" out/pack/dtb
           fi
-          cp out/arch/arm64/boot/dtbo.img out/pack/dtbo.img
+          
+          # DTBO específico para alioth (1 overlay: alioth-sm8250-overlay.dtbo)
+          if [ -f out/arch/arm64/boot/dts/vendor/qcom/alioth-sm8250-overlay.dtbo ]; then
+            echo "==> Criando dtbo.img dedicado para alioth"
+            python3 scripts/ufdt/libufdt/utils/src/mkdtboimg.py create out/pack/dtbo.img --page_size=4096 \
+              out/arch/arm64/boot/dts/vendor/qcom/alioth-sm8250-overlay.dtbo
+          elif [ -f "$GITHUB_WORKSPACE/droidspace/boot-assets/dtbo.img" ]; then
+            echo "==> Usando dtbo.img de boot-assets"
+            cp "$GITHUB_WORKSPACE/droidspace/boot-assets/dtbo.img" out/pack/dtbo.img
+          else
+            cp out/arch/arm64/boot/dtbo.img out/pack/dtbo.img
+          fi
+          
           ls -la out/pack/
 
       - name: Package AnyKernel (Pulsar AK3)

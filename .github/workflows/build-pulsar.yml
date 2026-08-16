@@ -54,6 +54,8 @@ jobs:
         run: |
           git clone --depth 1 --branch aosp-16 \
             https://github.com/PocoF3Releases/kernel_xiaomi_sm8250.git kernel
+          mkdir -p kernel/scripts/ufdt
+          git clone --depth 1 https://android.googlesource.com/platform/system/libufdt kernel/scripts/ufdt/libufdt
 
       - name: Setup KernelSU & SuSFS
         if: env.ENABLE_KSU == 'true'
@@ -144,11 +146,26 @@ jobs:
           mkdir -p out/pack
           cp out/arch/arm64/boot/Image out/pack/Image
           
-          # Concatena a tabela de DTBs Kona oficial para alioth (SM8250 / Snapdragon 870)
-          # O bootloader da Qualcomm (ABL) requer todos os DTBs kona concatenados para vendor_boot
-          cat out/arch/arm64/boot/dts/vendor/qcom/kona.dtb \
-              out/arch/arm64/boot/dts/vendor/qcom/kona-v2.dtb \
-              out/arch/arm64/boot/dts/vendor/qcom/kona-v2.1.dtb > out/pack/dtb
+          # DTB dedicado para alioth (Snapdragon 870 = kona-v2.1 SoC)
+          if [ -f out/arch/arm64/boot/dts/vendor/qcom/kona-v2.1.dtb ]; then
+            echo "==> Usando kona-v2.1.dtb compilado"
+            cp out/arch/arm64/boot/dts/vendor/qcom/kona-v2.1.dtb out/pack/dtb
+          elif [ -f "$GITHUB_WORKSPACE/droidspace/boot-assets/dtb" ]; then
+            echo "==> Usando dtb de boot-assets"
+            cp "$GITHUB_WORKSPACE/droidspace/boot-assets/dtb" out/pack/dtb
+          fi
+          
+          # DTBO dedicado para alioth (1 overlay: alioth-sm8250-overlay.dtbo)
+          if [ -f out/arch/arm64/boot/dts/vendor/qcom/alioth-sm8250-overlay.dtbo ]; then
+            echo "==> Criando dtbo.img dedicado para alioth"
+            python3 scripts/ufdt/libufdt/utils/src/mkdtboimg.py create out/pack/dtbo.img --page_size=4096 \
+              out/arch/arm64/boot/dts/vendor/qcom/alioth-sm8250-overlay.dtbo
+          elif [ -f "$GITHUB_WORKSPACE/droidspace/boot-assets/dtbo.img" ]; then
+            echo "==> Usando dtbo.img de boot-assets"
+            cp "$GITHUB_WORKSPACE/droidspace/boot-assets/dtbo.img" out/pack/dtbo.img
+          elif [ -f out/arch/arm64/boot/dtbo.img ]; then
+            cp out/arch/arm64/boot/dtbo.img out/pack/dtbo.img
+          fi
           
           ls -la out/pack/
 
@@ -158,6 +175,9 @@ jobs:
           cp -r "$GITHUB_WORKSPACE/droidspace/anykernel/." ak/
           cp kernel/out/pack/Image ak/Image
           cp kernel/out/pack/dtb ak/dtb
+          if [ -f kernel/out/pack/dtbo.img ]; then
+            cp kernel/out/pack/dtbo.img ak/dtbo.img
+          fi
           cd ak
           ZIP="Pulsar-${DEVICE}-AOSP16-$(date +%Y%m%d-%H%M).zip"
           zip -r9 "$ZIP" . -x '*.git*'

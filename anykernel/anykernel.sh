@@ -2,7 +2,7 @@
 # osm0sis @ xda-developers
 #
 # Pulsar Kernel custom installer
-# Base: E404 AK3 (kvsnr113) — simplified for alioth-only, direct install
+# POCO F3 / Xiaomi Mi 11X / Redmi K40 (alioth / aliothin)
 
 properties() { '
 kernel.string=Pulsar Kernel
@@ -17,8 +17,8 @@ supported.versions=
 '; }
 
 # shell variables
-block=/dev/block/bootdevice/by-name/boot;
-is_slot_device=1;
+block=auto;
+is_slot_device=auto;
 ramdisk_compression=auto;
 patch_vbmeta_flag=auto;
 
@@ -42,20 +42,6 @@ fi;
 
 write_boot;
 ## end install
-
-## vendor_boot shell variables
-block=/dev/block/bootdevice/by-name/vendor_boot;
-is_slot_device=1;
-ramdisk_compression=auto;
-patch_vbmeta_flag=auto;
-
-# reset for vendor_boot patching
-reset_ak;
-
-# vendor_boot install (replaces DTB)
-dump_boot;
-write_boot;
-## end vendor_boot install
 
 ui_print " ";
 ui_print " Pulsar Kernel — POCO F3 (alioth) ";

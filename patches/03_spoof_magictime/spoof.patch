@@ -1,0 +1,191 @@
+diff --git a/fs/exec.c b/fs/exec.c
+index 8b3195a72..7b4facc1f 100644
+--- a/fs/exec.c
++++ b/fs/exec.c
+@@ -74,6 +74,43 @@
+ 
+ int suid_dumpable = 0;
+ 
++#define LIBPERFMGR "/vendor/bin/hw/android.hardware.power-service.xiaomi-libperfmgr"
++#define LIBPERFMGR_BIN "/vendor/bin/hw/android.hardware.power-service.xiaomi-sm8250-libperfmgr"
++#define LIBPERFMGR_LOS "/vendor/bin/hw/android.hardware.power-service.lineage-libperfmgr"
++#define PERF "/vendor/bin/hw/vendor.qti.hardware.perf-hal-service"
++#define PERFD "/vendor/bin/hw/vendor.qti.hardware.perf2-hal-service"
++#define PERFH "/vendor/bin/hw/vendor.qti.hardware.perf@2.2-service"
++#define IOP "/vendor/bin/hw/vendor.qti.hardware.iop@2.0-service"
++#define SERVICEMANAGER_BIN "/system/bin/servicemanager"
++
++static struct task_struct *servicemanager_tsk;
++bool task_is_servicemanager(struct task_struct *p)
++{
++	return p == READ_ONCE(servicemanager_tsk);
++}
++
++static struct task_struct *powerhal_tsk;
++bool task_is_powerhal(struct task_struct *p)
++{
++	struct task_struct *tsk;
++	bool ret;
++
++	rcu_read_lock();
++	tsk = READ_ONCE(powerhal_tsk);
++	ret = tsk && same_thread_group(p, tsk);
++	rcu_read_unlock();
++
++	return ret;
++}
++
++void dead_special_task(void)
++{
++	if (unlikely(current == servicemanager_tsk))
++		WRITE_ONCE(servicemanager_tsk, NULL);
++	else if (unlikely(current == powerhal_tsk))
++		WRITE_ONCE(powerhal_tsk, NULL);
++}
++
+ static LIST_HEAD(formats);
+ static DEFINE_RWLOCK(binfmt_lock);
+ 
+@@ -1845,6 +1882,26 @@ static int __do_execve_file(int fd, struct filename *filename,
+ 	if (retval < 0)
+ 		goto out;
+ 
++	if (is_global_init(current->parent)) {
++		if (unlikely(!strcmp(filename->name, LIBPERFMGR))) {
++			WRITE_ONCE(powerhal_tsk, current);
++		} else if (unlikely(!strcmp(filename->name, LIBPERFMGR_BIN))) {
++			WRITE_ONCE(powerhal_tsk, current);
++		} else if (unlikely(!strcmp(filename->name, LIBPERFMGR_LOS))) {
++			WRITE_ONCE(powerhal_tsk, current);
++		} else if (unlikely(!strcmp(filename->name, PERF))) {
++			WRITE_ONCE(powerhal_tsk, current);
++		} else if (unlikely(!strcmp(filename->name, PERFD))) {
++			WRITE_ONCE(powerhal_tsk, current);
++		} else if (unlikely(!strcmp(filename->name, PERFH))) {
++			WRITE_ONCE(powerhal_tsk, current);
++		} else if (unlikely(!strcmp(filename->name, IOP))) {
++			WRITE_ONCE(powerhal_tsk, current);
++		} else if (unlikely(!strcmp(filename->name, SERVICEMANAGER_BIN))) {
++			WRITE_ONCE(servicemanager_tsk, current);
++		}
++	}
++
+ 	/* execve succeeded */
+ 	current->fs->in_exec = 0;
+ 	current->in_execve = 0;
+diff --git a/fs/open.c b/fs/open.c
+index ea1f4e2b4..b9d21281c 100644
+--- a/fs/open.c
++++ b/fs/open.c
+@@ -1102,6 +1102,59 @@ struct file *file_open_root(struct dentry *dentry, struct vfsmount *mnt,
+ }
+ EXPORT_SYMBOL(file_open_root);
+ 
++bool task_is_powerhal(struct task_struct *p);
++static bool libperfmgr_redirect(struct file **f, int dfd, struct filename *n,
++				struct open_flags *op, int flags)
++{
++	struct filename *redir_name;
++	struct file *redir_file;
++
++	/*
++	 * Check for a libperfmgr attempt to open a file that doesn't exist. The
++	 * open flags are checked to isolate file writes from FileNode::Update()
++	 * in libperfmgr specifically. This is done to avoid telling a different
++	 * part of libperfmgr that a file exists when it doesn't even exist on
++	 * the stock kernel.
++	 *
++	 * To identify FileNode::Update()'s open() attempts: O_WRONLY and
++	 * O_CLOEXEC must both be present, O_TRUNC is optional, and O_LARGEFILE
++	 * may be set at the beginning of the syscall so it's also optional.
++	 */
++#define REQUIRED_FLAGS (O_WRONLY | O_CLOEXEC)
++#define ALLOWED_FLAGS  (REQUIRED_FLAGS | O_TRUNC | O_LARGEFILE)
++	if (likely(*f != ERR_PTR(-ENOENT) ||
++	    (flags & REQUIRED_FLAGS) != REQUIRED_FLAGS ||
++	    flags & ~ALLOWED_FLAGS ||
++	    !task_is_powerhal(current)))
++		return false;
++#undef ALLOWED_FLAGS
++#undef REQUIRED_FLAGS
++
++	/*
++	 * Check that the file is a pseudo kernel file. tracefs and debugfs are
++	 * blocked since they're supposed to be ignored when they don't exist.
++	 */
++#define STARTS_WITH(prefix) !strncmp(n->name, prefix, sizeof(prefix) - 1)
++	if (!STARTS_WITH("/dev/") && !STARTS_WITH("/proc/") &&
++	    (!STARTS_WITH("/sys/") || STARTS_WITH("/sys/kernel/tracing/") ||
++	     STARTS_WITH("/sys/kernel/debug/")))
++		return false;
++#undef STARTS_WITH
++
++	/* Redirect the attempt to /dev/null instead */
++	redir_name = getname_kernel("/dev/null");
++	if (IS_ERR(redir_name))
++		return false;
++
++	redir_file = do_filp_open(dfd, redir_name, op);
++	putname(redir_name);
++	if (IS_ERR(redir_file))
++		return false;
++
++	*f = redir_file;
++	return true;
++}
++
+ long do_sys_open(int dfd, const char __user *filename, int flags, umode_t mode)
+ {
+ 	struct open_flags op;
+@@ -1118,7 +1171,7 @@ long do_sys_open(int dfd, const char __user *filename, int flags, umode_t mode)
+ 	fd = get_unused_fd_flags(flags);
+ 	if (fd >= 0) {
+ 		struct file *f = do_filp_open(dfd, tmp, &op);
+-		if (IS_ERR(f)) {
++		if (IS_ERR(f) && !libperfmgr_redirect(&f, dfd, tmp, &op, flags)) {
+ 			put_unused_fd(fd);
+ 			fd = PTR_ERR(f);
+ 		} else {
+diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
+index 6b6fc57dc..7ead19a5b 100644
+--- a/kernel/bpf/core.c
++++ b/kernel/bpf/core.c
+@@ -2362,9 +2362,23 @@ const struct bpf_func_proto bpf_get_ns_current_pid_tgid_proto __weak;
+ const struct bpf_func_proto bpf_snprintf_btf_proto __weak;
+ const struct bpf_func_proto bpf_seq_printf_btf_proto __weak;
+ 
++BPF_CALL_5(bpf_trace_printk_dummy, char *, fmt, u32, fmt_size, u64, arg1,
++	   u64, arg2, u64, arg3)
++{
++	return 0;
++}
++
++static const struct bpf_func_proto bpf_trace_printk_dummy_proto = {
++	.func		= bpf_trace_printk_dummy,
++	.gpl_only	= true,
++	.ret_type	= RET_INTEGER,
++	.arg1_type	= ARG_PTR_TO_MEM,
++	.arg2_type	= ARG_CONST_SIZE,
++};
++
+ const struct bpf_func_proto * __weak bpf_get_trace_printk_proto(void)
+ {
+-	return NULL;
++	return &bpf_trace_printk_dummy_proto;
+ }
+ 
+ u64 __weak
+diff --git a/kernel/sys.c b/kernel/sys.c
+index c4c6e0c45..6882454c2 100644
+--- a/kernel/sys.c
++++ b/kernel/sys.c
+@@ -1272,6 +1272,9 @@ SYSCALL_DEFINE1(newuname, struct new_utsname __user *, name)
+ 			pr_info("fake uname: %s/%d release=%s\n",
+ 				current->comm, current->pid, tmp.release);
+ 		}
++	} else if (current_uid().val >= 1000 ||
++		!strcmp(current->comm, "main")) {
++		strlcpy(tmp.release, "5.10.404R", sizeof(tmp.release));
+ 	}
+ #endif
+ 	up_read(&uts_sem);

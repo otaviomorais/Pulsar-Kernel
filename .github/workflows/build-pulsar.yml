@@ -81,17 +81,6 @@ jobs:
           for dir in "$GITHUB_WORKSPACE"/droidspace/patches/*/; do
             for patch in "$dir"*.patch; do
               basename="$(basename "$patch")"
-              # Skip conflicting patches based on KSU state:
-              # - nosu patch only for non-KSU builds
-              # - sm8250-enhancements (KSU/SuSFS) only for KSU builds
-              if [ "$ENABLE_KSU" == "true" ] && [[ "$basename" == *"nosu"* ]]; then
-                echo "==> Pulando $basename (KSU habilitado, patch sem SuSFS)"
-                continue
-              fi
-              if [ "$ENABLE_KSU" != "true" ] && [[ "$basename" == *"enhancements"* ]]; then
-                echo "==> Pulando $basename (KSU desabilitado, patch SuSFS desnecessário)"
-                continue
-              fi
               echo "==> Aplicando $basename"
               if ! git apply --verbose "$patch"; then
                 echo "WARN: $basename falhou, tentando com --3way"

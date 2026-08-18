@@ -132,10 +132,11 @@ jobs:
               CROSS_COMPILE=aarch64-linux-gnu- olddefconfig
           fi
           
-          # Habilitar MGLRU e KernelSU se aplicável
+          # Habilitar MGLRU (não está no defconfig nem no magictime-common)
           ./scripts/config --file out/.config -e LRU_GEN -e LRU_GEN_ENABLED
+          # KSU já vem do magictime-common.config; SuSFS precisa ser habilitado
           if [ "$ENABLE_KSU" == "true" ]; then
-            ./scripts/config --file out/.config -e KSU -e KSU_SUSFS
+            ./scripts/config --file out/.config -e KSU_SUSFS
           fi
 
       - name: Build kernel

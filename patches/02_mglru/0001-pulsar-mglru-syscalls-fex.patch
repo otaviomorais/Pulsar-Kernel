@@ -2007,6 +2007,38 @@ index a89eb0acc..3b1712fa0 100644
 +	__u32 flags;
 +	__u32 __reserved;
 +};
+diff --git a/include/uapi/linux/openat2.h b/include/uapi/linux/openat2.h
+new file mode 100644
+index 000000000..4c0c4d12a
+--- /dev/null
++++ b/include/uapi/linux/openat2.h
+@@ -0,0 +1,26 @@
++/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
++#ifndef _UAPI_LINUX_OPENAT2_H
++#define _UAPI_LINUX_OPENAT2_H
++
++#include <linux/types.h>
++
++struct open_how {
++	__u64 flags;
++	__u64 mode;
++	__u64 resolve;
++};
++
++/* Flags for the resolve field */
++#define RESOLVE_NO_MAGICLINKS	0x01	/* Block magic links */
++#define RESOLVE_NO_SYMLINKS	0x02	/* Block symlink traversal */
++#define RESOLVE_NO_XDEV	0x04	/* No cross-device/fd links */
++#define RESOLVE_BENEATH		0x08	/* Restrict to dir below */
++#define RESOLVE_IN_ROOT		0x10	/* Treat dir as root */
++#define RESOLVE_CACHED		0x20	/* Only resolve cached dentries */
++
++#define RESOLVE_IN_ROOT_MASK	(RESOLVE_NO_MAGICLINKS | RESOLVE_NO_SYMLINKS | \
++				 RESOLVE_NO_XDEV | RESOLVE_BENEATH | \
++				 RESOLVE_IN_ROOT)
++#define RESOLVE_MASK		(RESOLVE_IN_ROOT_MASK | RESOLVE_CACHED)
++
++#endif /* _UAPI_LINUX_OPENAT2_H */
 diff --git a/kernel/bounds.c b/kernel/bounds.c
 index 9795d75b0..10dd9e6b0 100644
 --- a/kernel/bounds.c

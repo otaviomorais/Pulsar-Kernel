@@ -116,11 +116,18 @@ jobs:
           make O=out LLVM=1 LLVM_IAS=1 HOSTCC=gcc PYTHON=python3 PYTHON2=python3 \
             CROSS_COMPILE=aarch64-linux-gnu- ${DEVICE}_defconfig
           
-          # Se existir fragmento DroidSpaces, mescla na config
+          # Mescla fragments: magictime-common.config (TIMISONG) + droidspace.config
+          FRAGMENTS=""
+          if [ -f "arch/arm64/configs/vendor/xiaomi/magictime-common.config" ]; then
+            echo "==> Usando magictime-common.config do TIMISONG"
+            FRAGMENTS="$FRAGMENTS arch/arm64/configs/vendor/xiaomi/magictime-common.config"
+          fi
           if [ -f "$GITHUB_WORKSPACE/droidspace/configs/droidspace.config" ]; then
             echo "==> Mesclando configs do DroidSpaces"
-            ./scripts/kconfig/merge_config.sh -m -O out out/.config \
-              "$GITHUB_WORKSPACE/droidspace/configs/droidspace.config"
+            FRAGMENTS="$FRAGMENTS $GITHUB_WORKSPACE/droidspace/configs/droidspace.config"
+          fi
+          if [ -n "$FRAGMENTS" ]; then
+            ./scripts/kconfig/merge_config.sh -m -O out out/.config $FRAGMENTS
             make O=out LLVM=1 LLVM_IAS=1 HOSTCC=gcc PYTHON=python3 PYTHON2=python3 \
               CROSS_COMPILE=aarch64-linux-gnu- olddefconfig
           fi

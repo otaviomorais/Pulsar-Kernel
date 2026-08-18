@@ -3365,10 +3365,18 @@ index e6dca854c..bbb623c22 100644
  		mmap_read_lock(mm);
  		lock_page(page);
 diff --git a/mm/vmscan.c b/mm/vmscan.c
-index 30568559b..a89828343 100644
+index 30568559b..27623a7c7 100644
 --- a/mm/vmscan.c
 +++ b/mm/vmscan.c
-@@ -50,6 +50,10 @@
+@@ -37,6 +37,7 @@
+ #include <linux/cpu.h>
+ #include <linux/cpuset.h>
+ #include <linux/compaction.h>
++#include <linux/pagewalk.h>
+ #include <linux/notifier.h>
+ #include <linux/rwsem.h>
+ #include <linux/delay.h>
+@@ -50,6 +51,10 @@
  #include <linux/printk.h>
  #include <linux/dax.h>
  #include <linux/psi.h>
@@ -3379,7 +3387,7 @@ index 30568559b..a89828343 100644
  
  #include <asm/tlbflush.h>
  #include <asm/div64.h>
-@@ -108,6 +112,13 @@ struct scan_control {
+@@ -108,6 +113,13 @@ struct scan_control {
  	/* One of the zones is ready for compaction */
  	unsigned int compaction_ready:1;
  
@@ -3393,7 +3401,7 @@ index 30568559b..a89828343 100644
  	/* Allocation order */
  	s8 order;
  
-@@ -907,6 +918,7 @@ static int __remove_mapping(struct address_space *mapping, struct page *page,
+@@ -907,6 +919,7 @@ static int __remove_mapping(struct address_space *mapping, struct page *page,
  {
  	unsigned long flags;
  	int refcount;
@@ -3401,7 +3409,7 @@ index 30568559b..a89828343 100644
  
  	BUG_ON(!PageLocked(page));
  	BUG_ON(mapping != page_mapping(page));
-@@ -951,8 +963,11 @@ static int __remove_mapping(struct address_space *mapping, struct page *page,
+@@ -951,8 +964,11 @@ static int __remove_mapping(struct address_space *mapping, struct page *page,
  
  	if (PageSwapCache(page)) {
  		swp_entry_t swap = { .val = page_private(page) };
@@ -3414,7 +3422,7 @@ index 30568559b..a89828343 100644
  		xa_unlock_irqrestore(&mapping->i_pages, flags);
  		put_swap_page(page, swap);
  	} else {
-@@ -1176,6 +1191,11 @@ static unsigned long shrink_page_list(struct list_head *page_list,
+@@ -1176,6 +1192,11 @@ static unsigned long shrink_page_list(struct list_head *page_list,
  		if (!sc->may_unmap && page_mapped(page))
  			goto keep_locked;
  
@@ -3426,7 +3434,7 @@ index 30568559b..a89828343 100644
  		/* Double the slab pressure for mapped and swapcache pages */
  		if ((page_mapped(page) || PageSwapCache(page)) &&
  		    !(PageAnon(page) && !PageSwapBacked(page)))
-@@ -1713,10 +1733,7 @@ static __always_inline void update_lru_sizes(struct lruvec *lruvec,
+@@ -1713,10 +1734,7 @@ static __always_inline void update_lru_sizes(struct lruvec *lruvec,
  		if (!nr_zone_taken[zid])
  			continue;
  
@@ -3438,7 +3446,7 @@ index 30568559b..a89828343 100644
  	}
  
  }
-@@ -1862,10 +1879,9 @@ int isolate_lru_page(struct page *page)
+@@ -1862,10 +1880,9 @@ int isolate_lru_page(struct page *page)
  		spin_lock_irq(zone_lru_lock(zone));
  		lruvec = mem_cgroup_page_lruvec(page, zone->zone_pgdat);
  		if (PageLRU(page)) {
@@ -3450,7 +3458,7 @@ index 30568559b..a89828343 100644
  			ret = 0;
  		}
  		spin_unlock_irq(zone_lru_lock(zone));
-@@ -1922,7 +1938,6 @@ putback_inactive_pages(struct lruvec *lruvec, struct list_head *page_list)
+@@ -1922,7 +1939,6 @@ putback_inactive_pages(struct lruvec *lruvec, struct list_head *page_list)
  	 */
  	while (!list_empty(page_list)) {
  		struct page *page = lru_to_page(page_list);
@@ -3458,7 +3466,7 @@ index 30568559b..a89828343 100644
  
  		VM_BUG_ON_PAGE(PageLRU(page), page);
  		list_del(&page->lru);
-@@ -1936,18 +1951,16 @@ putback_inactive_pages(struct lruvec *lruvec, struct list_head *page_list)
+@@ -1936,18 +1952,16 @@ putback_inactive_pages(struct lruvec *lruvec, struct list_head *page_list)
  		lruvec = mem_cgroup_page_lruvec(page, pgdat);
  
  		SetPageLRU(page);
@@ -3482,7 +3490,7 @@ index 30568559b..a89828343 100644
  
  			if (unlikely(PageCompound(page))) {
  				spin_unlock_irq(&pgdat->lru_lock);
-@@ -2120,7 +2133,6 @@ static unsigned move_active_pages_to_lru(struct lruvec *lruvec,
+@@ -2120,7 +2134,6 @@ static unsigned move_active_pages_to_lru(struct lruvec *lruvec,
  {
  	struct pglist_data *pgdat = lruvec_pgdat(lruvec);
  	struct page *page;
@@ -3490,7 +3498,7 @@ index 30568559b..a89828343 100644
  	int nr_moved = 0;
  
  	while (!list_empty(list)) {
-@@ -2128,16 +2140,13 @@ static unsigned move_active_pages_to_lru(struct lruvec *lruvec,
+@@ -2128,16 +2141,13 @@ static unsigned move_active_pages_to_lru(struct lruvec *lruvec,
  		lruvec = mem_cgroup_page_lruvec(page, pgdat);
  
  		VM_BUG_ON_PAGE(PageLRU(page), page);
@@ -3511,7 +3519,7 @@ index 30568559b..a89828343 100644
  
  			if (unlikely(PageCompound(page))) {
  				spin_unlock_irq(&pgdat->lru_lock);
-@@ -2147,7 +2156,7 @@ static unsigned move_active_pages_to_lru(struct lruvec *lruvec,
+@@ -2147,7 +2157,7 @@ static unsigned move_active_pages_to_lru(struct lruvec *lruvec,
  			} else
  				list_add(&page->lru, pages_to_free);
  		} else {
@@ -3520,7 +3528,7 @@ index 30568559b..a89828343 100644
  		}
  	}
  
-@@ -2424,7 +2433,7 @@ static void get_scan_count(struct lruvec *lruvec, struct mem_cgroup *memcg,
+@@ -2424,7 +2434,7 @@ static void get_scan_count(struct lruvec *lruvec, struct mem_cgroup *memcg,
  {
  	int swappiness = mem_cgroup_swappiness(memcg);
  	struct zone_reclaim_stat *reclaim_stat = &lruvec->reclaim_stat;
@@ -3529,7 +3537,7 @@ index 30568559b..a89828343 100644
  	u64 denominator = 0;	/* gcc */
  	struct pglist_data *pgdat = lruvec_pgdat(lruvec);
  	unsigned long anon_prio, file_prio;
-@@ -2541,8 +2550,6 @@ static void get_scan_count(struct lruvec *lruvec, struct mem_cgroup *memcg,
+@@ -2541,8 +2551,6 @@ static void get_scan_count(struct lruvec *lruvec, struct mem_cgroup *memcg,
  	 * Because workloads change over time (and to avoid overflow)
  	 * we keep these statistics as a floating average, which ends
  	 * up weighing recent references more than old ones.
@@ -3538,7 +3546,7 @@ index 30568559b..a89828343 100644
  	 */
  
  	anon  = lruvec_lru_size(lruvec, LRU_ACTIVE_ANON, MAX_NR_ZONES) +
-@@ -2627,231 +2634,2871 @@ static void get_scan_count(struct lruvec *lruvec, struct mem_cgroup *memcg,
+@@ -2627,231 +2635,2871 @@ static void get_scan_count(struct lruvec *lruvec, struct mem_cgroup *memcg,
  	}
  }
  
@@ -6596,7 +6604,7 @@ index 30568559b..a89828343 100644
  
  		nr_reclaimed = sc->nr_reclaimed;
  		nr_scanned = sc->nr_scanned;
-@@ -3145,6 +5792,9 @@ static void snapshot_refaults(struct mem_cgroup *root_memcg, pg_data_t *pgdat)
+@@ -3145,6 +5793,9 @@ static void snapshot_refaults(struct mem_cgroup *root_memcg, pg_data_t *pgdat)
  {
  	struct mem_cgroup *memcg;
  
@@ -6606,7 +6614,7 @@ index 30568559b..a89828343 100644
  	memcg = mem_cgroup_iter(root_memcg, NULL, NULL);
  	do {
  		unsigned long refaults;
-@@ -3526,6 +6176,11 @@ static void age_active_anon(struct pglist_data *pgdat,
+@@ -3526,6 +6177,11 @@ static void age_active_anon(struct pglist_data *pgdat,
  {
  	struct mem_cgroup *memcg;
  
@@ -6618,7 +6626,7 @@ index 30568559b..a89828343 100644
  	if (!total_swap_pages)
  		return;
  
-@@ -3868,8 +6523,11 @@ static int balance_pgdat(pg_data_t *pgdat, int order, int classzone_idx)
+@@ -3868,8 +6524,11 @@ static int balance_pgdat(pg_data_t *pgdat, int order, int classzone_idx)
  			sc.priority--;
  	} while (sc.priority >= 1);
  
@@ -6632,7 +6640,7 @@ index 30568559b..a89828343 100644
  
  out:
  	/* If reclaim was boosted, account for the reclaim done in this pass */
-@@ -4161,7 +6819,7 @@ void wakeup_kswapd(struct zone *zone, gfp_t gfp_flags, int order,
+@@ -4161,7 +6820,7 @@ void wakeup_kswapd(struct zone *zone, gfp_t gfp_flags, int order,
   */
  unsigned long shrink_all_memory(unsigned long nr_to_reclaim)
  {
@@ -6641,7 +6649,7 @@ index 30568559b..a89828343 100644
  	struct scan_control sc = {
  		.nr_to_reclaim = nr_to_reclaim,
  		.gfp_mask = GFP_HIGHUSER_MOVABLE,
-@@ -4504,7 +7162,7 @@ static int __node_reclaim(struct pglist_data *pgdat, gfp_t gfp_mask, unsigned in
+@@ -4504,7 +7163,7 @@ static int __node_reclaim(struct pglist_data *pgdat, gfp_t gfp_mask, unsigned in
  	/* Minimum pages needed in order to stay on node */
  	const unsigned long nr_pages = 1 << order;
  	struct task_struct *p = current;
@@ -6650,7 +6658,7 @@ index 30568559b..a89828343 100644
  	unsigned int noreclaim_flag;
  	struct scan_control sc = {
  		.nr_to_reclaim = max(nr_pages, SWAP_CLUSTER_MAX),
-@@ -4650,12 +7308,9 @@ void check_move_unevictable_pages(struct page **pages, int nr_pages)
+@@ -4650,12 +7309,9 @@ void check_move_unevictable_pages(struct page **pages, int nr_pages)
  			continue;
  
  		if (page_evictable(page)) {

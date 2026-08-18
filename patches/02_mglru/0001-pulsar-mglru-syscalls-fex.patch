@@ -2104,10 +2104,10 @@ index a619e75c5..81c9a15d2 100644
  
  	/* forking complete and child started to run, tell ptracer */
 diff --git a/kernel/futex.c b/kernel/futex.c
-index 1635bb00e..78bf83ff2 100644
+index 1635bb00e..986e3686b 100644
 --- a/kernel/futex.c
 +++ b/kernel/futex.c
-@@ -4184,3 +4184,271 @@ static int __init futex_init(void)
+@@ -4184,3 +4184,275 @@ static int __init futex_init(void)
  	return 0;
  }
  core_initcall(futex_init);
@@ -2298,7 +2298,9 @@ index 1635bb00e..78bf83ff2 100644
 +		hrtimer_init_on_stack(&to.timer, (flag_clkid & FLAGS_CLOCKRT) ?
 +				      CLOCK_REALTIME : CLOCK_MONOTONIC,
 +				      HRTIMER_MODE_ABS);
-+		hrtimer_init_sleeper(&to, current);
++		hrtimer_init_sleeper(&to, (flag_clkid & FLAGS_CLOCKRT) ?
++				     CLOCK_REALTIME : CLOCK_MONOTONIC,
++				     HRTIMER_MODE_ABS);
 +		hrtimer_set_expires_range_ns(&to.timer, time,
 +					     current->timer_slack_ns);
 +	}
@@ -2356,7 +2358,9 @@ index 1635bb00e..78bf83ff2 100644
 +		hrtimer_init_on_stack(&to.timer, (flag_clkid & FLAGS_CLOCKRT) ?
 +				      CLOCK_REALTIME : CLOCK_MONOTONIC,
 +				      HRTIMER_MODE_ABS);
-+		hrtimer_init_sleeper(&to, current);
++		hrtimer_init_sleeper(&to, (flag_clkid & FLAGS_CLOCKRT) ?
++				     CLOCK_REALTIME : CLOCK_MONOTONIC,
++				     HRTIMER_MODE_ABS);
 +		hrtimer_set_expires_range_ns(&to.timer, time,
 +					     current->timer_slack_ns);
 +	}
@@ -2854,7 +2858,7 @@ index df31f7f07..1f9184dee 100644
  		shmem_recalc_inode(inode);
  		info->swapped++;
 diff --git a/mm/swap.c b/mm/swap.c
-index 39c49085b..66dd60e29 100644
+index 39c49085b..c0bd1a4a0 100644
 --- a/mm/swap.c
 +++ b/mm/swap.c
 @@ -66,9 +66,8 @@ static void __page_cache_release(struct page *page)
@@ -3018,7 +3022,22 @@ index 39c49085b..66dd60e29 100644
  		__count_vm_event(PGROTATED);
  	}
  
-@@ -561,10 +606,7 @@ static void lru_lazyfree_fn(struct page *page, struct lruvec *lruvec,
+@@ -544,12 +589,11 @@ static void lru_deactivate_fn(struct page *page, struct lruvec *lruvec,
+ {
+ 	if (PageLRU(page) && PageActive(page) && !PageUnevictable(page)) {
+ 		int file = page_is_file_cache(page);
+-		int lru = page_lru_base_type(page);
+ 
+-		del_page_from_lru_list(page, lruvec, lru + LRU_ACTIVE);
++		del_page_from_lru_list(page, lruvec);
+ 		ClearPageActive(page);
+ 		ClearPageReferenced(page);
+-		add_page_to_lru_list(page, lruvec, lru);
++		add_page_to_lru_list(page, lruvec);
+ 
+ 		__count_vm_events(PGDEACTIVATE, hpage_nr_pages(page));
+ 		update_page_reclaim_stat(lruvec, file, 0);
+@@ -561,10 +605,7 @@ static void lru_lazyfree_fn(struct page *page, struct lruvec *lruvec,
  {
  	if (PageLRU(page) && PageAnon(page) && PageSwapBacked(page) &&
  	    !PageSwapCache(page) && !PageUnevictable(page)) {
@@ -3030,7 +3049,7 @@ index 39c49085b..66dd60e29 100644
  		ClearPageActive(page);
  		ClearPageReferenced(page);
  		/*
-@@ -573,7 +615,7 @@ static void lru_lazyfree_fn(struct page *page, struct lruvec *lruvec,
+@@ -573,7 +614,7 @@ static void lru_lazyfree_fn(struct page *page, struct lruvec *lruvec,
  		 * pages
  		 */
  		ClearPageSwapBacked(page);
@@ -3039,7 +3058,7 @@ index 39c49085b..66dd60e29 100644
  
  		__count_vm_events(PGLAZYFREE, hpage_nr_pages(page));
  		count_memcg_page_event(page, PGLAZYFREE);
-@@ -881,13 +923,10 @@ void release_pages(struct page **pages, int nr)
+@@ -881,13 +922,10 @@ void release_pages(struct page **pages, int nr)
  			}
  
  			lruvec = mem_cgroup_page_lruvec(page, locked_pgdat);
@@ -3055,7 +3074,7 @@ index 39c49085b..66dd60e29 100644
  		__ClearPageWaiters(page);
  
  		list_add(&page->lru, &pages_to_free);
-@@ -944,17 +983,14 @@ void lru_add_page_tail(struct page *page, struct page *page_tail,
+@@ -944,17 +982,14 @@ void lru_add_page_tail(struct page *page, struct page *page_tail,
  		get_page(page_tail);
  		list_add_tail(&page_tail->lru, list);
  	} else {
@@ -3076,7 +3095,7 @@ index 39c49085b..66dd60e29 100644
  	}
  
  	if (!PageUnevictable(page))
-@@ -965,7 +1001,6 @@ void lru_add_page_tail(struct page *page, struct page *page_tail,
+@@ -965,7 +1000,6 @@ void lru_add_page_tail(struct page *page, struct page *page_tail,
  static void __pagevec_lru_add_fn(struct page *page, struct lruvec *lruvec,
  				 void *arg)
  {
@@ -3084,7 +3103,7 @@ index 39c49085b..66dd60e29 100644
  	int was_unevictable = TestClearPageUnevictable(page);
  
  	VM_BUG_ON_PAGE(PageLRU(page), page);
-@@ -1000,21 +1035,19 @@ static void __pagevec_lru_add_fn(struct page *page, struct lruvec *lruvec,
+@@ -1000,21 +1034,19 @@ static void __pagevec_lru_add_fn(struct page *page, struct lruvec *lruvec,
  	smp_mb();
  
  	if (page_evictable(page)) {

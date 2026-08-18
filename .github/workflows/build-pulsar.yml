@@ -114,7 +114,7 @@ jobs:
           
           # Base defconfig oficial dedicado do Alioth
           make O=out LLVM=1 LLVM_IAS=1 HOSTCC=gcc PYTHON=python3 PYTHON2=python3 \
-            CROSS_COMPILE=aarch64-linux-gnu- vendor/xiaomi/${DEVICE}_defconfig
+            CROSS_COMPILE=aarch64-linux-gnu- ${DEVICE}_defconfig
           
           # Se existir fragmento DroidSpaces, mescla na config
           if [ -f "$GITHUB_WORKSPACE/droidspace/configs/droidspace.config" ]; then

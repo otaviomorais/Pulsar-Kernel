@@ -1,4 +1,4 @@
-name: Build Pulsar Kernel (alioth - PocoF3 AOSP-16)
+name: Build Pulsar Kernel (alioth - TIMISONG magictime-new)
 
 on:
   push:
@@ -50,26 +50,22 @@ jobs:
           sudo ln -sf /usr/bin/python3 /usr/bin/python2 || true
           sudo ln -sf /usr/bin/python3 /usr/bin/python || true
 
-      - name: Clone kernel source (PocoF3Releases aosp-16)
+      - name: Clone kernel source (TIMISONG-dev magictime-new)
         run: |
-          git clone --depth 1 --branch aosp-16 \
-            https://github.com/PocoF3Releases/kernel_xiaomi_sm8250.git kernel
+          git clone --depth 1 --branch magictime-new \
+            https://github.com/TIMISONG-dev/kernel_xiaomi_sm8250.git kernel
           mkdir -p kernel/scripts/ufdt
           git clone --depth 1 https://android.googlesource.com/platform/system/libufdt kernel/scripts/ufdt/libufdt
 
-      - name: Setup KernelSU & SuSFS
+      - name: Setup KernelSU-Next (submodule)
         if: env.ENABLE_KSU == 'true'
         run: |
           cd kernel
-          echo "==> Setup KernelSU com SuSFS"
-          git clone --depth 1 -b susfs-rksu-master https://github.com/rsuntk/KernelSU.git KernelSU
-          
-          # Fixes de headers SuSFS no KernelSU
-          sed -i 's/#include <linux\/susfs_def\.h>/#include <linux\/susfs\.h>/g' KernelSU/kernel/sucompat.c || true
-          sed -i -E 's/(susfs_[[:alnum:]_]+)\(arg\)/\1((void __user *)arg)/g' KernelSU/kernel/supercalls.c || true
+          echo "==> Inicializando KernelSU-Next submodule"
+          git submodule update --init --depth 1 KernelSU-Next
           
           # Integração no build do kernel
-          ln -sf ../KernelSU/kernel drivers/kernelsu
+          ln -sf ../KernelSU-Next/kernel drivers/kernelsu
           if ! grep -q "drivers/kernelsu" drivers/Kconfig; then
             sed -i '/endmenu/i source "drivers/kernelsu/Kconfig"' drivers/Kconfig
           fi
@@ -82,9 +78,28 @@ jobs:
         run: |
           cd kernel
           shopt -s nullglob
-          for patch in "$GITHUB_WORKSPACE"/droidspace/patches/*/*.patch; do
-            echo "==> Applying $patch"
-            git apply --verbose "$patch"
+          for dir in "$GITHUB_WORKSPACE"/droidspace/patches/*/; do
+            for patch in "$dir"*.patch; do
+              basename="$(basename "$patch")"
+              # Skip conflicting patches based on KSU state:
+              # - nosu patch only for non-KSU builds
+              # - sm8250-enhancements (KSU/SuSFS) only for KSU builds
+              if [ "$ENABLE_KSU" == "true" ] && [[ "$basename" == *"nosu"* ]]; then
+                echo "==> Pulando $basename (KSU habilitado, patch sem SuSFS)"
+                continue
+              fi
+              if [ "$ENABLE_KSU" != "true" ] && [[ "$basename" == *"enhancements"* ]]; then
+                echo "==> Pulando $basename (KSU desabilitado, patch SuSFS desnecessário)"
+                continue
+              fi
+              echo "==> Aplicando $basename"
+              if ! git apply --verbose "$patch"; then
+                echo "WARN: $basename falhou, tentando com --3way"
+                git apply --3way "$patch" || {
+                  echo "ERRO: $basename não aplicável, pulando"
+                }
+              fi
+            done
           done
 
       - name: Download Clang 20 (ZyCromerZ)
@@ -110,7 +125,7 @@ jobs:
           
           # Base defconfig oficial dedicado do Alioth
           make O=out LLVM=1 LLVM_IAS=1 HOSTCC=gcc PYTHON=python3 PYTHON2=python3 \
-            CROSS_COMPILE=aarch64-linux-gnu- ${DEVICE}_defconfig
+            CROSS_COMPILE=aarch64-linux-gnu- vendor/xiaomi/${DEVICE}_defconfig
           
           # Se existir fragmento DroidSpaces, mescla na config
           if [ -f "$GITHUB_WORKSPACE/droidspace/configs/droidspace.config" ]; then
@@ -202,13 +217,13 @@ jobs:
           if [ -n "$LAST_TAG" ] && [ "$LAST_TAG" != "$RELEASE" ]; then
             CHANGES="$(gh api "repos/${{ github.repository }}/compare/${LAST_TAG}...${GITHUB_SHA}" \
               --jq '.commits[].commit.message | split("\n")[0]' 2>/dev/null | sed 's/^/- /' || true)"
-            printf '## O que mudou desde %s\n\n%s\n\n---\n**Base**: PocoF3Releases aosp-16 (4.19.325) — **Dispositivo**: %s\n\nFlash via TWRP/recovery.\n' \
+            printf '## O que mudou desde %s\n\n%s\n\n---\n**Base**: TIMISONG-dev magictime-new (4.19.325) — **Dispositivo**: %s\n\nFlash via TWRP/recovery.\n' \
               "$LAST_TAG" "$CHANGES" "$DEVICE" > NOTES.md
           else
-            printf '**Release Pulsar Kernel AOSP 16 para %s** (base PocoF3Releases 4.19.325) com:\n- Base oficial alioth_defconfig (PocoF3Releases)\n- Concatenação completa de DTBs Kona no vendor_boot\n- Backports de Syscalls (openat2, faccessat2, close_range, futex_waitv 64/32-bit)\n- KernelSU com ganchos SuSFS 1.5.x\n- io_uring (v5.1 backport)\n- Multi-Gen LRU (MGLRU) backport\n- zram com compressor zstd default\n- configs DroidSpaces\n\nFlash via TWRP/recovery.\n' \
+            printf '**Release Pulsar Kernel AOSP 16 para %s** (base TIMISONG-dev magictime-new 4.19.325) com:\n- Base TIMISONG-dev alioth_defconfig (magictime-new)\n- KernelSU-Next integrado via submodule\n- Backports de Syscalls (openat2, faccessat2, close_range, futex_waitv 64/32-bit)\n- KernelSU com ganchos SuSFS\n- io_uring (v5.1 backport)\n- Multi-Gen LRU (MGLRU) backport\n- zram com compressor zstd default\n- configs DroidSpaces\n- Spoof de uname + libperfmgr redirect\n\nFlash via TWRP/recovery.\n' \
               "$DEVICE" > NOTES.md
           fi
           gh release create "$RELEASE" "$ZIP" \
-            --title "Pulsar AOSP 16 v1.0.0 — ${DEVICE} $(date +%Y%m%d-%H%M)" \
+            --title "Pulsar AOSP 16 v1.0.0 — ${DEVICE} magictime-new $(date +%Y%m%d-%H%M)" \
             --notes-file NOTES.md
           echo "Release: https://github.com/${{ github.repository }}/releases/tag/$RELEASE"

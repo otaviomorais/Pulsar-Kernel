@@ -64,6 +64,12 @@ jobs:
           echo "==> Inicializando KernelSU-Next submodule"
           git submodule update --init --depth 1 KernelSU-Next
           
+          echo "==> Atualizando KernelSU-Next para v3.3.0"
+          cd KernelSU-Next
+          git fetch --depth 1 origin tag v3.3.0
+          git checkout v3.3.0
+          cd ..
+          
           # Integração no build do kernel
           ln -sf ../KernelSU-Next/kernel drivers/kernelsu
           if ! grep -q "drivers/kernelsu" drivers/Kconfig; then

@@ -326,7 +326,7 @@ flash_boot() {
           magisk_patched=$?;
         fi;
         if [ $((magisk_patched & 3)) -eq 1 ]; then
-          # ui_print " " "Magisk detected! Patching kernel so reflashing Magisk is not necessary...";
+          ui_print " " "Magisk detected! Patching kernel so reflashing Magisk is not necessary...";
           comp=$($bin/magiskboot decompress kernel 2>&1 | grep -vE 'raw|zimage' | sed -n 's;.*\[\(.*\)\];\1;p');
           ($bin/magiskboot split $kernel || $bin/magiskboot decompress $kernel kernel) 2>/dev/null;
           if [ $? != 0 -a "$comp" ] && $comp --help 2>/dev/null; then
@@ -469,12 +469,15 @@ flash_generic() {
       for file in $1 $1$slot; do
         if [ -e $path/$file ]; then
           imgblock=$path/$file;
-          break;
+          break 2;
         fi;
       done;
     done;
     if [ ! "$imgblock" ]; then
       abort "$1 partition could not be found. Aborting...";
+    fi;
+    if [ ! "$no_block_display" ]; then
+      ui_print " " "$imgblock";
     fi;
     if [ "$path" == "/dev/block/mapper" ]; then
       avb=$($bin/httools_static avb $1);
@@ -488,7 +491,7 @@ flash_generic() {
             for file in $avb $avb$slot; do
               if [ -e $avbpath/$file ]; then
                 avbblock=$avbpath/$file;
-                break;
+                break 2;
               fi;
             done;
           done;
@@ -792,6 +795,9 @@ reset_ak() {
   else
     rm -rf $patch $home/rdtmp;
   fi;
+  if [ ! "$no_block_display" ]; then
+    ui_print " ";
+  fi;
   setup_ak;
 }
 
@@ -901,7 +907,7 @@ setup_ak() {
           elif [ -e /dev/$part ]; then
             target=/dev/$part;
           fi;
-          [ "$target" ] && break;
+          [ "$target" ] && break 2;
         done;
       done;
     ;;
@@ -910,6 +916,9 @@ setup_ak() {
     block=$(ls $target 2>/dev/null);
   else
     abort "Unable to determine $block partition. Aborting...";
+  fi;
+  if [ ! "$no_block_display" ]; then
+    ui_print "$block";
   fi;
   
   # allow multi-partition ramdisk modifying configurations (using reset_ak)
